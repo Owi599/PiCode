@@ -1,6 +1,5 @@
 #This is the code for the ethernet interface for communnicating sensor and control data through the ethernet interface of the RPi
 from com import UDP, TCP
-from gpiozero import RotaryEncoder #to creat Rotary encoder instance
 from rotaryencoder import ReadRotaryEncoder#child class wherer all sensor reading related methods are stored
 from motorencoder import ReadMotorEncoder
 import numpy as np
@@ -41,7 +40,7 @@ while True:
 		Data.append(str("{:.2f}".format(encoder.readVelocity(cpr,last_time,last_steps))))
 		data = strg.join(Data)
 		UDP_SENSOR.SendData(data)
-		print("{:.3f}".format(float(UDP_CTRL.RecData())))
+		print(UDP_CTRL.RecData())
 		Data = [] 
 	except KeyboardInterrupt:
 		break
