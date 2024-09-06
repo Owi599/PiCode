@@ -2,14 +2,25 @@
 from com import UDP, TCP
 from rotaryencoder import ReadRotaryEncoder#child class wherer all sensor reading related methods are stored
 from motorencoder import ReadMotorEncoder
+from PhotoelectricSensor import EndSwitch
+import RPi.GPIO as GPIO
 import numpy as np
 import time
+
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
 
 #Constant Values
 ETH_SERVER_IP = "10.0.8.40"
 ETH_CLIENT = "10.0.8.55"
 ETH_SERVER_PORT_SENSOR = 890
 ETH_SERVER_PORT_CTRL = 5000
+
+#Creating objects for the endswitch using GPIO pins 4 and 17
+SwitchPin_1 = 4
+EndSwitch = EndSwitch(SwitchPin_1)
+SwitchPin_2 = 17
+EndSwitch_2 = EndSwitch(SwitchPin_2)
 
 # Creating encoder object using GPIO pins 7 and 8 in BCM mode
 encoder_m     = ReadMotorEncoder(7, 8, max_steps=0)
