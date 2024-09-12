@@ -17,10 +17,10 @@ ETH_SERVER_PORT_SENSOR = 890
 ETH_SERVER_PORT_CTRL = 5000
 
 #Creating objects for the endswitch using GPIO pins 4 and 17
-SwitchPin_1 = 4
-EndSwitch = EndSwitch(SwitchPin_1)
-SwitchPin_2 = 17
-EndSwitch_2 = EndSwitch(SwitchPin_2)
+# SwitchPin_1 = 4
+# EndSwitch = EndSwitch(SwitchPin_1)
+# SwitchPin_2 = 17
+# EndSwitch_2 = EndSwitch(SwitchPin_2)
 
 # Creating encoder object using GPIO pins 7 and 8 in BCM mode
 encoder_m     = ReadMotorEncoder(7, 8, max_steps=0)
