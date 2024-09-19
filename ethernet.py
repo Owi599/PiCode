@@ -26,8 +26,7 @@ ETH_SERVER_PORT_CTRL = 5000
 #Creating object for the motor control using GPIO pins 09 and 10
 PulsePin = 9
 DirPin = 10
-GPIO.setup(PulsePin,GPIO.OUT)
-GPIO.setup(DirPin,GPIO.OUT)
+
 
 StepsPerRev = 200
 PulleyRad = 0.025
