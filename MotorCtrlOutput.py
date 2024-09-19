@@ -17,16 +17,19 @@ class CTRL():
 
         torque_per_step = self.HT/self.SPR
 
-        steps = int(torque/torque_per_step)
+        steps = round(torque/torque_per_step)
 
-        return steps
+        steps_int =    int(steps)
+        print(steps_int)
+        return steps_int
     
     def Stepper(self,Force,direction):
-        GPIO.setup(self.Pulse,GPIO.output)
-        GPIO.setup(self.DIR, GPIO.output)
+
 
         GPIO.output(self.DIR, GPIO.HIGH if direction > 0 else GPIO.LOW)
 
         for _ in range(abs(self.calculate_steps(Force))):
             GPIO.output(self.Pulse,GPIO.HIGH)
-            
+            time.sleep(.001)
+            GPIO.output(self.Pulse,GPIO.LOW)
+            time.sleep(.0005)

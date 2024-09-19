@@ -3,6 +3,7 @@ from com import UDP, TCP
 from rotaryencoder import ReadRotaryEncoder#child class wherer all sensor reading related methods are stored
 from motorencoder import ReadMotorEncoder
 from PhotoelectricSensor import EndSwitch
+from MotorCtrlOutput import CTRL
 import RPi.GPIO as GPIO
 import numpy as np
 import time
@@ -21,6 +22,17 @@ ETH_SERVER_PORT_CTRL = 5000
 # EndSwitch = EndSwitch(SwitchPin_1)
 # SwitchPin_2 = 17
 # EndSwitch_2 = EndSwitch(SwitchPin_2)
+
+#Creating object for the motor control using GPIO pins 09 and 10
+PulsePin = 9
+DirPin = 10
+GPIO.setup(PulsePin,GPIO.OUT)
+GPIO.setup(DirPin,GPIO.OUT)
+
+StepsPerRev = 200
+PulleyRad = 0.025
+HoldingTorque = 2
+Motor = CTRL(PulsePin,DirPin,StepsPerRev,PulleyRad,HoldingTorque)
 
 # Creating encoder object using GPIO pins 7 and 8 in BCM mode
 encoder_m     = ReadMotorEncoder(7, 8, max_steps=0)
@@ -44,15 +56,23 @@ Data  = []
 strg = ' '
 while True:
 	try:
-		time.sleep(0.005)
+		time.sleep(0.1)
 		Data.append(str("{:.2f}".format(encoder_m.readPosition(cpr_m))))
 		Data.append(str("{:.2f}".format(encoder.readPosition(cpr))))
 		Data.append(str("{:.2f}".format(encoder_m.readVelocity(cpr_m,last_time,last_steps_m))))
 		Data.append(str("{:.2f}".format(encoder.readVelocity(cpr,last_time,last_steps))))
 		data = strg.join(Data)
 		UDP_SENSOR.SendData(data)
-		print(UDP_CTRL.RecData())
+		C = float(UDP_CTRL.RecData())
+		print(C)
 		Data = [] 
+		if C < 0:
+			Motor.Stepper(C,-1)
+		elif C > 0:
+			Motor.Stepper(C,1)
+		
+
+
 	except KeyboardInterrupt:
 		break
 	except Exception as e:
