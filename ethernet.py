@@ -55,7 +55,7 @@ Data  = []
 strg = ' '
 while True:
 	try:
-		time.sleep(0.1)
+		time.sleep(0.8)
 		Data.append(str("{:.2f}".format(encoder_m.readPosition(cpr_m))))
 		Data.append(str("{:.2f}".format(encoder.readPosition(cpr))))
 		Data.append(str("{:.2f}".format(encoder_m.readVelocity(cpr_m,last_time,last_steps_m))))
