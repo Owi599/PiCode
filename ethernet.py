@@ -39,7 +39,9 @@ cpr_m         = 500
 
 # Creating encoder object using GPIO pins 20 and 21
 encoder       = ReadRotaryEncoder(21,20,max_steps=625,wrap=True)
+encoder_2     = ReadRotaryEncoder(16,12,max_steps=625,wrap=True)
 encoder.steps = 625
+encoder_2.steps = 0
 cpr           = 1250
 
 # Initialize variables for angular velocity measurement
@@ -55,11 +57,13 @@ Data  = []
 strg = ' '
 while True:
 	try:
-		time.sleep(0.8)
+		time.sleep(0.4)
 		Data.append(str("{:.2f}".format(encoder_m.readPosition(cpr_m))))
 		Data.append(str("{:.2f}".format(encoder.readPosition(cpr))))
+		Data.append(str("{:.2f}".format(encoder_2.readPosition(cpr))))
 		Data.append(str("{:.2f}".format(encoder_m.readVelocity(cpr_m,last_time,last_steps_m))))
 		Data.append(str("{:.2f}".format(encoder.readVelocity(cpr,last_time,last_steps))))
+		Data.append(str("{:.2f}".format(encoder_2.readVelocity(cpr,last_time,last_steps))))
 		data = strg.join(Data)
 		UDP_SENSOR.SendData(data)
 		C = float(UDP_CTRL.RecData())
