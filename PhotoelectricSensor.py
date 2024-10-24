@@ -6,8 +6,7 @@ GPIO.setwarnings(False)
 class EndSwitch():
     def __init__(self, pin):
         self.pin = pin
-        self.pin.set_mode(pin.IN)
-        self.pin.set_pull(pin.PULL_UP)
+        GPIO.setup(self.pin,GPIO.IN)
         
 
     def read(self):
@@ -19,6 +18,6 @@ class EndSwitch():
             
     def Object_detected(self):
         while True:
-            if self.read() == 1:
+            if self.read() == 0:
                 return 1
     

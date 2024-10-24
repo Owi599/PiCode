@@ -29,7 +29,7 @@ DirPin = 10
 
 
 StepsPerRev = 200
-PulleyRad = 0.025
+PulleyRad = 0.2
 HoldingTorque = 2
 Motor = CTRL(PulsePin,DirPin,StepsPerRev,PulleyRad,HoldingTorque)
 
@@ -42,7 +42,7 @@ encoder       = ReadRotaryEncoder(21,20,max_steps=625,wrap=True)
 encoder_2     = ReadRotaryEncoder(16,12,max_steps=625,wrap=True)
 encoder.steps = 625
 encoder_2.steps = 0
-cpr           = 1250
+cpr           = 1250 
 
 # Initialize variables for angular velocity measurement
 last_time     = time.time()
@@ -57,7 +57,7 @@ Data  = []
 strg = ' '
 while True:
 	try:
-		time.sleep(0.4)
+		time.sleep(0.6)
 		Data.append(str("{:.2f}".format(encoder_m.readPosition(cpr_m))))
 		Data.append(str("{:.2f}".format(encoder.readPosition(cpr))))
 		Data.append(str("{:.2f}".format(encoder_2.readPosition(cpr))))
