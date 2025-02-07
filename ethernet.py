@@ -57,7 +57,7 @@ Data  = []
 strg = ' '
 while True:
 	try:
-		time.sleep(0.6)
+		time.sleep(0.2)
 		Data.append(str("{:.2f}".format(encoder_m.readPosition(cpr_m))))
 		Data.append(str("{:.2f}".format(encoder.readPosition(cpr))))
 		Data.append(str("{:.2f}".format(encoder_2.readPosition(cpr))))
@@ -66,7 +66,11 @@ while True:
 		Data.append(str("{:.2f}".format(encoder_2.readVelocity(cpr,last_time,last_steps))))
 		data = strg.join(Data)
 		UDP_SENSOR.SendData(data)
-		C = float(UDP_CTRL.RecData())
+		try:
+			C = float(UDP_CTRL.RecData().strip())
+		except ValueError:
+			print('Invalid data received')
+			C = 0
 		print(C)
 		Data = [] 
 		if C < 0:
@@ -77,6 +81,9 @@ while True:
 
 
 	except KeyboardInterrupt:
+		GPIO.cleanup()
 		break
 	except Exception as e:
 		print('An error occured:', str(e))
+		GPIO.cleanup()
+		break
