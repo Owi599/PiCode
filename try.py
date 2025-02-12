@@ -1,21 +1,21 @@
 #This is the code for the ethernet interface for communnicating sensor and control data through the ethernet interface of the RPi
-from com import COM
+from com import UDP
 from gpiozero import RotaryEncoder #to creat Rotary encoder instance
 from rotaryencoder import ReadRotaryEncoder#child class wherer all sensor reading related methods are stored
 from motorencoder import ReadMotorEncoder
 import numpy as np
 import time
 
-udpCTRL = COM("10.0.8.55",5000,1)
+#udpCTRL = COM("10.0.8.55",5000,1)
 # Creating encoder object using GPIO pins 7 and 8 in BCM mode
 encoder_m     = ReadMotorEncoder(7, 8, max_steps=0)
 cpr_m         = 500
 
-encoder       = ReadRotaryEncoder(21,20,max_steps=625,wrap=True)
+encoder       = ReadRotaryEncoder(21,20,max_steps = 625, wrap=True)
 encoder.steps = 625
 cpr           = 1250
 
-last_time     = time.time()
+last_time = time.time()
 last_steps    = encoder.steps
 last_steps_m  = encoder_m.steps
 
@@ -29,7 +29,8 @@ while True:
 	vel = "{:.3f}".format(v)
 	w = encoder.readVelocity(cpr,last_time,last_steps)
 	omg =   "{:.3f}".format(w)
+	last_time     = time.time()
+
 	
 	print(pos,',',agl,',',vel,',',omg)
-	
 	

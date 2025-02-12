@@ -13,8 +13,8 @@ try:
     while True:
         GPIO.output(directtion, ccw)
         GPIO.output(Pulse,GPIO.HIGH)
-        time.sleep(.001)
+        time.sleep(.002)
         GPIO.output(Pulse,GPIO.LOW)
-        time.sleep(.0005)
+        time.sleep(.001)
 except KeyboardInterrupt:
     GPIO.cleanup()

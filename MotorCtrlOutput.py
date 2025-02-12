@@ -35,9 +35,15 @@ class CTRL():
         torque_per_step = availible_tourque/self.SPR
         
         steps_int = max(1, int(round(torque / torque_per_step)))  # Ensures at least 1 step
-        return steps_int
-    
-    def Stepper(self,Force,direction):
+        
+        step_freq = (Speed * self.SPR) / 60
+        step_delay =  1 / step_freq
+		
+        
+        return steps_in, step_delay
+        
+        
+    def Stepper(self,Force,direction, speed):
 
         if direction == 1:
             GPIO.output(self.DIR, GPIO.HIGH)
@@ -46,10 +52,10 @@ class CTRL():
         else:
             raise ValueError('Direction must be 1 or -1')
         
-        steps = self.calculate_steps(Force)
+        steps, step_delay = self.calculate_steps(Force,speed)
 
         for step in range(abs(steps)):
             GPIO.output(self.Pulse,GPIO.HIGH)
-            time.sleep(.002)
+            time.sleep(step_delay/2)
             GPIO.output(self.Pulse,GPIO.LOW)
-            time.sleep(.001)
+            time.sleep(step_delay/2)
