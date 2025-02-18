@@ -25,11 +25,10 @@ while True:
 	pos = "{:.2f}".format(x)
 	a = encoder.readPosition(cpr)
 	agl = "{:.2f}".format(a)
-	v = encoder_m.readVelocity(cpr_m,last_time,last_steps_m)
+	v, last_time, last_steps_m = encoder_m.readVelocity(cpr_m,last_time,last_steps_m)
 	vel = "{:.3f}".format(v)
-	w = encoder.readVelocity(cpr,last_time,last_steps)
+	w, last_time, last_steps = encoder.readVelocity(cpr,last_time,last_steps)
 	omg =   "{:.3f}".format(w)
-	last_time     = time.time()
 
 	
 	print(pos,',',agl,',',vel,',',omg)

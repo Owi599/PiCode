@@ -17,7 +17,7 @@ class CTRL():
     def calculate_steps(self, Force,Speed):
         torque = Force * self.Rad
         
-        V_max = 1000 #rpm
+        V_max = 2000 #rpm
         
         
         if self.SPR == 0:
@@ -26,21 +26,21 @@ class CTRL():
             raise ValueError('Speed cannot be greater than 1000 rpm')
             Speed = V_max -1
         
-        availible_tourque = self.HT * (1 - (Speed/V_max))
+        availible_torque = self.HT * (1 - (Speed/V_max))
         
-        if availible_tourque <= 0:
+        if availible_torque <= 0:
             raise ValueError('Speed is too high for the motor')
             steps_int = 0
         
-        torque_per_step = availible_tourque/self.SPR
+        torque_per_step = availible_torque/self.SPR
         
         steps_int = max(1, int(round(torque / torque_per_step)))  # Ensures at least 1 step
-        
+         
         step_freq = (Speed * self.SPR) / 60
         step_delay =  1 / step_freq
 		
         
-        return steps_in, step_delay
+        return steps_int, step_delay
         
         
     def Stepper(self,Force,direction, speed):
@@ -59,3 +59,7 @@ class CTRL():
             time.sleep(step_delay/2)
             GPIO.output(self.Pulse,GPIO.LOW)
             time.sleep(step_delay/2)
+
+
+example = CTRL(9,10,200,2.2,2)
+example.Stepper(50,1,1500)

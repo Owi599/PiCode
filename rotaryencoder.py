@@ -20,10 +20,8 @@ class ReadRotaryEncoder(RotaryEncoder):
 			time_diff = 0.0001
 		print(time_diff)
 
-		# Calculate angular velocity (in radians per second)
+		# Calculate angular velocity
 		angular_velocity = (step_diff / time_diff) * (60/CPR)  # Rpm
 
-		# Update last_time and last_steps
-		l_t = current_time
-		l_s = current_steps
-		return angular_velocity
+		
+		return angular_velocity, current_time, current_steps

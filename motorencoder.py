@@ -10,7 +10,6 @@ class ReadMotorEncoder(RotaryEncoder):
 		return position
 
 	def readVelocity(self,CPR,l_t,l_s):
-		time.sleep(0.002)			
 		current_time = time.time()
 		current_steps = self.steps
         
@@ -27,7 +26,6 @@ class ReadMotorEncoder(RotaryEncoder):
 		velocity = (step_diff /time_diff) * (60 / CPR)  # Rpm
         
 		# Update last_time and last_steps
-		l_t = current_time
-		l_s = current_steps
-		return velocity
+		
+		return velocity, current_time, current_steps
  

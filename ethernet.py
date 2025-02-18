@@ -74,9 +74,9 @@ while True:
 		print(C)
 		Data = [] 
 		if C < 0:
-			Motor.Stepper(C,-1,encoder_m.readVelocity(cpr_m,last_time,last_steps_m))
+			Motor.Stepper(C,-1,encoder_m.readVelocity(cpr_m,last_time,last_steps_m)[0])
 		elif C > 0:
-			Motor.Stepper(C,1,encoder_m.readVelocity(cpr_m,last_time,last_steps_m))
+			Motor.Stepper(C,1,encoder_m.readVelocity(cpr_m,last_time,last_steps_m)[0])
 		
 
 
