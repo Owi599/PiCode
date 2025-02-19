@@ -25,6 +25,9 @@ class CTRL():
         if Speed >= V_max:
             raise ValueError('Speed cannot be greater than 1000 rpm')
             Speed = V_max -1
+        if Speed == 0:
+            #raise ValueError('Speed cannot be 0')
+            Speed = 0.00001
         
         availible_torque = self.HT * (1 - (Speed/V_max))
         
@@ -60,6 +63,3 @@ class CTRL():
             GPIO.output(self.Pulse,GPIO.LOW)
             time.sleep(step_delay/2)
 
-
-example = CTRL(9,10,200,2.2,2)
-example.Stepper(50,1,1500)

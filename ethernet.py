@@ -57,13 +57,13 @@ Data  = []
 strg = ' '
 while True:
 	try:
-		time.sleep(0.02)
+		time.sleep(0.8)
 		Data.append(str("{:.2f}".format(encoder_m.readPosition(cpr_m))))
 		Data.append(str("{:.2f}".format(encoder.readPosition(cpr))))
 		Data.append(str("{:.2f}".format(encoder_2.readPosition(cpr))))
-		Data.append(str("{:.2f}".format(encoder_m.readVelocity(cpr_m,last_time,last_steps_m))))
-		Data.append(str("{:.2f}".format(encoder.readVelocity(cpr,last_time,last_steps))))
-		Data.append(str("{:.2f}".format(encoder_2.readVelocity(cpr,last_time,last_steps))))
+		Data.append(str("{:.2f}".format(encoder_m.readVelocity(cpr_m,last_time,last_steps_m)[0])))
+		Data.append(str("{:.2f}".format(encoder.readVelocity(cpr,last_time,last_steps)[0])))
+		Data.append(str("{:.2f}".format(encoder_2.readVelocity(cpr,last_time,last_steps)[0])))
 		data = strg.join(Data)
 		UDP_SENSOR.SendData(data)
 		try:
