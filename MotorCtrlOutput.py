@@ -23,14 +23,17 @@ class CTRL():
         if self.SPR == 0:
             raise ValueError('Steps per revolution cannot be zero')
         if Speed >= V_max:
-            raise ValueError('Speed cannot be greater than 2000 rpm')
             Speed = V_max -1
+            raise ValueError('Speed cannot be greater than 2000 rpm')
+            
         if Speed <= (-V_max):
-            raise ValueError('Speed cannot be lesser than -2000 rpm')
             Speed = -V_max +1
-        if Speed == 0:
-            raise ValueError('Speed cannot be 0')
-            Speed = 0.00001
+            raise ValueError('Speed cannot be lesser than -2000 rpm')
+        # Set minimum speed to prevent extremely large delays
+        MIN_SPEED = 1  # 1 RPM minimum
+        if Speed == 0 or abs(Speed) < MIN_SPEED:
+            Speed = MIN_SPEED if Speed >= 0 else -MIN_SPEED
+
         
         availible_torque = self.HT * (1 - (abs(Speed)/V_max))
         
@@ -43,7 +46,12 @@ class CTRL():
         steps_int = max(1, int(round(torque / torque_per_step)))  # Ensures at least 1 step
          
         step_freq = (abs(Speed) * self.SPR) / 60
-        step_delay =  1 / step_freq
+        step_delay = 1 / step_freq
+        
+        # Set maximum delay to prevent out-of-bound values
+        MAX_DELAY = 1.0  # 1 second maximum delay
+        step_delay = min(step_delay, MAX_DELAY)
+
 		
         
         return steps_int, step_delay
@@ -65,4 +73,3 @@ class CTRL():
             time.sleep(step_delay/2)
             GPIO.output(self.Pulse,GPIO.LOW)
             time.sleep(step_delay/2)
-
