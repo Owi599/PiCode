@@ -26,8 +26,8 @@ class CTRL():
             raise ValueError('Speed cannot be greater than 2000 rpm')
             Speed = V_max -1
         if Speed <= (-V_max):
-			raise ValueError('Speed cannot be lesser than -2000 rpm')
-			Speed = -V_max +1
+            raise ValueError('Speed cannot be lesser than -2000 rpm')
+            Speed = -V_max +1
         if Speed == 0:
             raise ValueError('Speed cannot be 0')
             Speed = 0.00001
