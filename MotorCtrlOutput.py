@@ -23,13 +23,16 @@ class CTRL():
         if self.SPR == 0:
             raise ValueError('Steps per revolution cannot be zero')
         if Speed >= V_max:
-            raise ValueError('Speed cannot be greater than 1000 rpm')
+            raise ValueError('Speed cannot be greater than 2000 rpm')
             Speed = V_max -1
+        if Speed <= (-V_max):
+			raise ValueError('Speed cannot be lesser than -2000 rpm')
+			Speed = -V_max +1
         if Speed == 0:
-            #raise ValueError('Speed cannot be 0')
+            raise ValueError('Speed cannot be 0')
             Speed = 0.00001
         
-        availible_torque = self.HT * (1 - (Speed/V_max))
+        availible_torque = self.HT * (1 - (abs(Speed)/V_max))
         
         if availible_torque <= 0:
             raise ValueError('Speed is too high for the motor')
@@ -39,7 +42,7 @@ class CTRL():
         
         steps_int = max(1, int(round(torque / torque_per_step)))  # Ensures at least 1 step
          
-        step_freq = (Speed * self.SPR) / 60
+        step_freq = (abs(Speed) * self.SPR) / 60
         step_delay =  1 / step_freq
 		
         

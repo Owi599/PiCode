@@ -47,6 +47,7 @@ cpr           = 1250
 # Initialize variables for angular velocity measurement
 last_time     = time.time()
 last_steps    = encoder.steps
+last_steps_2	  = encoder_2.steps
 last_steps_m  = encoder_m.steps
 
 #Communiaction Server/Clients initiation       
@@ -57,13 +58,16 @@ Data  = []
 strg = ' '
 while True:
 	try:
-		time.sleep(0.8)
+		time.sleep(0.02)
 		Data.append(str("{:.2f}".format(encoder_m.readPosition(cpr_m))))
 		Data.append(str("{:.2f}".format(encoder.readPosition(cpr))))
 		Data.append(str("{:.2f}".format(encoder_2.readPosition(cpr))))
-		Data.append(str("{:.2f}".format(encoder_m.readVelocity(cpr_m,last_time,last_steps_m)[0])))
-		Data.append(str("{:.2f}".format(encoder.readVelocity(cpr,last_time,last_steps)[0])))
-		Data.append(str("{:.2f}".format(encoder_2.readVelocity(cpr,last_time,last_steps)[0])))
+		V , last_time, last_steps_m = encoder_m.readVelocity(cpr_m,last_time,last_steps_m)
+		Data.append(str("{:.2f}".format(V)))
+		W1, last_time, last_steps   = encoder.readVelocity(cpr,last_time,last_steps)
+		Data.append(str("{:.2f}".format(W1)))
+		W2, last_time, last_steps_2 = encoder_2.readVelocity(cpr,last_time,last_steps_2)
+		Data.append(str("{:.2f}".format(W2)))
 		data = strg.join(Data)
 		UDP_SENSOR.SendData(data)
 		try:
@@ -74,9 +78,9 @@ while True:
 		print(C)
 		Data = [] 
 		if C < 0:
-			Motor.Stepper(C,-1,encoder_m.readVelocity(cpr_m,last_time,last_steps_m)[0])
+			Motor.Stepper(C,-1,V)
 		elif C > 0:
-			Motor.Stepper(C,1,encoder_m.readVelocity(cpr_m,last_time,last_steps_m)[0])
+			Motor.Stepper(C,1,V)
 		
 
 
