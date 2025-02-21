@@ -51,7 +51,7 @@ class CTRL():
         # Set maximum delay to prevent out-of-bound values
         MAX_DELAY = 1.0  # 1 second maximum delay
         step_delay = min(step_delay, MAX_DELAY)
-
+        print(step_delay)
 		
         
         return steps_int, step_delay
@@ -67,7 +67,7 @@ class CTRL():
             raise ValueError('Direction must be 1 or -1')
         
         steps, step_delay = self.calculate_steps(Force,speed)
-
+        print(steps)
         for step in range(abs(steps)):
             GPIO.output(self.Pulse,GPIO.HIGH)
             time.sleep(step_delay/2)
