@@ -13,9 +13,9 @@ try:
     while n <= 10:
         GPIO.output(direction, cw)
         GPIO.output(Pulse,GPIO.HIGH)
-        time.sleep(.001e-9)
+        time.sleep(.001e-12)
         GPIO.output(Pulse,GPIO.LOW)
-        time.sleep(.001e-9)
+        time.sleep(.001e-12)
       
         
 

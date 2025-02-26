@@ -45,7 +45,7 @@ encoder_2.steps = 0
 cpr           = 1250 
 
 # Initialize variables for angular velocity measurement
-last_time     = time.time()
+
 last_steps    = encoder.steps
 last_steps_2	  = encoder_2.steps
 last_steps_m  = encoder_m.steps
@@ -53,20 +53,23 @@ last_steps_m  = encoder_m.steps
 #Communiaction Server/Clients initiation       
 UDP_SENSOR    = UDP(ETH_SERVER_IP,ETH_SERVER_PORT_SENSOR)
 UDP_CTRL      = UDP(ETH_CLIENT,ETH_SERVER_PORT_CTRL)
-
+t_sample = 1.49
 Data  = [] 
 strg = ' '
+last_time   = time.time()
+last_time_2 = time.time()
+last_time_m = time.time() 
 while True:
 	try:
-		time.sleep(0.02)
+		time.sleep(t_sample)
 		Data.append(str("{:.2f}".format(encoder_m.readPosition(cpr_m))))
 		Data.append(str("{:.2f}".format(encoder.readPosition(cpr))))
 		Data.append(str("{:.2f}".format(encoder_2.readPosition(cpr))))
-		V , last_time, last_steps_m = encoder_m.readVelocity(cpr_m,last_time,last_steps_m)
+		V , last_time_m, last_steps_m = encoder_m.readVelocity(cpr_m,last_time,last_steps_m)
 		Data.append(str("{:.2f}".format(V)))
 		W1, last_time, last_steps   = encoder.readVelocity(cpr,last_time,last_steps)
 		Data.append(str("{:.2f}".format(W1)))
-		W2, last_time, last_steps_2 = encoder_2.readVelocity(cpr,last_time,last_steps_2)
+		W2, last_time_2, last_steps_2 = encoder_2.readVelocity(cpr,last_time,last_steps_2)
 		Data.append(str("{:.2f}".format(W2)))
 		data = strg.join(Data)
 		UDP_SENSOR.SendData(data)

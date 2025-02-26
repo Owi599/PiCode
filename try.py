@@ -16,16 +16,17 @@ encoder.steps = 625
 cpr           = 1250
 
 last_time = time.time()
+last_time_m = time.time()
 last_steps    = encoder.steps
 last_steps_m  = encoder_m.steps
 
 while True:
-	
+	time.sleep(0.8)
 	x = encoder_m.readPosition(cpr_m)
 	pos = "{:.2f}".format(x)
 	a = encoder.readPosition(cpr)
 	agl = "{:.2f}".format(a)
-	v, last_time, last_steps_m = encoder_m.readVelocity(cpr_m,last_time,last_steps_m)
+	v, last_time_m, last_steps_m = encoder_m.readVelocity(cpr_m,last_time,last_steps_m)
 	vel = "{:.3f}".format(v)
 	w, last_time, last_steps = encoder.readVelocity(cpr,last_time,last_steps)
 	omg =   "{:.3f}".format(w)
