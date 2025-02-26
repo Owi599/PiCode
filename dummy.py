@@ -1,25 +1,11 @@
-import RPi.GPIO as GPIO
-import time
-import scipy.integrate as spi
-import math as m
 import numpy as np
-GPIO.setmode(GPIO.BCM)
+import random
+import time
 
-class CTRL():
-
-    def __init__(self,PulsePin,DirectionPin,StepsPerRev,PulleyRad,HoldingTorque):
-        self.PulsePin = PulsePin
-        self.DIR = DirectionPin
-        GPIO.setup(PulsePin,GPIO.OUT)
-        GPIO.setup(DirectionPin,GPIO.OUT)
-        self.StepsPerRev = StepsPerRev
-        self.PulleyRad = PulleyRad
-        self.HoldingTorque = HoldingTorque
-
-    def calculate_steps(self, Force):
+def calculate_steps(Force):
         m_total = 0.232 + 0.127 + 0.127
         CPR = 500
-        t_sample = 0.05        
+        t_sample = 25e-3        
         Acceleration = Force/m_total
         Velocity = Acceleration*t_sample
         RPM = (Velocity * 60)/(2*np.pi*0.025)
@@ -61,7 +47,7 @@ class CTRL():
         
         # steps_int = max(1, int(round(torque / torque_per_step)))  # Ensures at least 1 step
          
-        step_freq = (abs(Velocity) * self.StepsPerRev) / 60
+        step_freq = (abs(Velocity) * 200) / 60
         step_period = 1 / step_freq
         
         # # Set maximum delay to prevent out-of-bound values
@@ -70,22 +56,15 @@ class CTRL():
 
 		
         
-        return steps_int, step_period
-        
-        
-    def Stepper(self,Force,direction):
-
-        if direction == 1:
-            GPIO.output(self.DIR, GPIO.HIGH)
-        elif direction == -1:
-            GPIO.output(self.DIR,GPIO.LOW)
-        else:
-            raise ValueError('Direction must be 1 or -1')
-        
-        steps, step_period = self.calculate_steps(Force)
-
-        for step in range(abs(steps)):
-            GPIO.output(self.PulsePin,GPIO.HIGH)
-            time.sleep(step_period/2)
-            GPIO.output(self.PulsePin,GPIO.LOW)
-            time.sleep(step_period/2)
+        return steps_int, step_freq ,step_period, Position
+    
+while True:
+    try:
+        time.sleep(25e-3)
+        Force = random.randrange(1,10)
+        print(Force, calculate_steps(Force))
+    except KeyboardInterrupt:
+        break
+    except ValueError as e:
+        print(e)
+        break
