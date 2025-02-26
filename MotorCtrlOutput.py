@@ -82,7 +82,7 @@ class CTRL():
         else:
             raise ValueError('Direction must be 1 or -1')
         
-        steps, step_delay = self.calculate_steps(Force,speed)
+        steps, step_period = self.calculate_steps(Force)
 
         for step in range(abs(steps)):
             GPIO.output(self.PulsePin,GPIO.HIGH)
