@@ -16,10 +16,9 @@ class CTRL():
         self.PulleyRad = PulleyRad
         self.HoldingTorque = HoldingTorque
 
-    def calculate_steps(self, Force):
+    def calculate_steps(self, Force,t_sample):
         m_total = 0.232 + 0.127 + 0.127
-        CPR = 500
-        t_sample = 0.05        
+        CPR = 500        
         Acceleration = Force/m_total
         Velocity = Acceleration*t_sample
         RPM = (Velocity * 60)/(2*np.pi*0.025)
@@ -73,7 +72,7 @@ class CTRL():
         return steps_int, step_period
         
         
-    def Stepper(self,Force,direction):
+    def Stepper(self,Force,direction,t_sample):
 
         if direction == 1:
             GPIO.output(self.DIR, GPIO.HIGH)
@@ -82,7 +81,7 @@ class CTRL():
         else:
             raise ValueError('Direction must be 1 or -1')
         
-        steps, step_period = self.calculate_steps(Force)
+        steps, step_period = self.calculate_steps(Force,t_sample)
 
         for step in range(abs(steps)):
             GPIO.output(self.PulsePin,GPIO.HIGH)

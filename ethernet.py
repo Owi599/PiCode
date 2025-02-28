@@ -81,9 +81,9 @@ while True:
 		print(C)
 		Data = [] 
 		if C < 0:
-			Motor.Stepper(C,-1,V)
+			Motor.Stepper(C,-1,t_sample)
 		elif C > 0:
-			Motor.Stepper(C,1,V)
+			Motor.Stepper(C,1,t_sample)
 		
 
 
