@@ -21,7 +21,7 @@ last_steps    = encoder.steps
 last_steps_m  = encoder_m.steps
 
 while True:
-	time.sleep(0.8)
+	time.sleep(0.05)
 	x = encoder_m.readPosition(cpr_m)
 	pos = "{:.2f}".format(x)
 	a = encoder.readPosition(cpr)

@@ -1,6 +1,5 @@
 import RPi.GPIO as GPIO
 import time
-import scipy.integrate as spi
 import math as m
 import numpy as np
 GPIO.setmode(GPIO.BCM)
@@ -32,7 +31,8 @@ class CTRL():
         
         #Check for maximum speed
         if abs(Speed_RPM) > self.V_max:
-            Speed_RPM = np.sign(Speed_RPM)*self.V_max
+            print(Speed_RPM)
+            Speed_RPM = np.sign(Speed_RPM)*self.V_max - 1
             Velocity = (Speed_RPM * 2*np.pi*self.PulleyRad)/60
             print('Warning:Speed cannot be greater than 2000 rpm')
         
@@ -51,7 +51,7 @@ class CTRL():
         TorquePerStep = Torque_available/Steps_per_rev
         
         steps_int = max(1, int(round(Torque_required / TorquePerStep)))  # Ensures at least 1 step
-        
+        print(steps_int)
         step_freq = (abs(Velocity) * Steps_per_rev) / (2*np.pi*self.PulleyRad)  # Frequency in Hz
         
         if step_freq == 0:
@@ -62,7 +62,7 @@ class CTRL():
         # # Set maximum delay to prevent out-of-bound values
         MAX_DELAY = t_sample   # maximum delay
         step_period = min(step_period, MAX_DELAY)
-
+        print(step_period)
 		
         
         return steps_int, step_period
