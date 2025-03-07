@@ -2,67 +2,59 @@ import numpy as np
 import random
 import time
 
-def calculate_steps(Force):
-        m_total = 0.232 + 0.127 + 0.127
-        CPR = 500
-        t_sample = 25e-3        
-        Acceleration = Force/m_total
-        Velocity = Acceleration*t_sample
-        RPM = (Velocity * 60)/(2*np.pi*0.025)
-        if RPM >= 2000:
-            RPM = 1999
-            Velocity = (RPM * 2*np.pi*0.025)/60
-            raise ValueError('Speed cannot be greater than 2000 rpm')
-        if RPM <= -2000:
-            RPM = -1999
-            Velocity = (RPM * 2*np.pi*0.025)/60
-            raise ValueError('Speed cannot be lesser than -2000 rpm')
-        Position = Velocity*t_sample
+def calculate_steps(Force,V_intit,X_init,step_init,t_sample):
         
-        steps_int = int((CPR/0.05*np.pi)*Position)
+        #Velocity and Speed in RPM
+        Acceleration = (Force)/(.232+.127+.127) 
+        Velocity = Acceleration*t_sample + V_intit
+        Radial_Velocity = Velocity * 0.0125
+        Speed_RPM = Radial_Velocity * 9.549297
         
-        # torque = Force * self.PulleyRad
-        # if self.StepsPerRev == 0:
-        #     raise ValueError('Steps per revolution cannot be zero')
-        # if Speed >= V_max:
-        #     Speed = V_max -1
-        #     raise ValueError('Speed cannot be greater than 2000 rpm')
-            
-        # if Speed <= (-V_max):
-        #     Speed = -V_max +1
-        #     raise ValueError('Speed cannot be lesser than -2000 rpm')
-        # # Set minimum speed to prevent extremely large delays
-        # MIN_SPEED = 1  # 1 RPM minimum
-        # if Speed == 0 or abs(Speed) < MIN_SPEED:
-        #     Speed = MIN_SPEED if Speed >= 0 else -MIN_SPEED
-
+        #Check for maximum speed
+        if abs(Speed_RPM) >2000:
+            print(Speed_RPM)
+            Speed_RPM = np.sign(Speed_RPM)*2000 + (-np.sign(Speed_RPM)*1)  
+            Velocity = Speed_RPM * 0.01047198
+            print('Warning:Speed cannot be greater than 2000 rpm')
         
-        # availible_torque = self.HoldingTorque * (1 - (abs(Speed)/V_max))
+        #caclcuate the positison
+        X = 0.5*Acceleration*t_sample**2 + V_intit*t_sample + X_init
         
-        # if availible_torque <= 0:
-        #     raise ValueError('Speed is too high for the motor')
-        #     steps_int = 0
+        steps_int = max(int(round(((40*500)/2*np.pi)*abs(X))),1) - step_init # Ensures at least 1 step
+        step_freq = (abs(Velocity) * 3200) / (0.0125/2*np.pi)  # Frequency in Hz
         
-        # torque_per_step = availible_torque/self.StepsPerRev
-        
-        # steps_int = max(1, int(round(torque / torque_per_step)))  # Ensures at least 1 step
-         
-        step_freq = (abs(Velocity) * 200) / 60
-        step_period = 1 / step_freq
+        if step_freq == 0:
+            step_period = 0  # Motor is not moving
+        else:
+            step_period = 1 / step_freq
         
         # # Set maximum delay to prevent out-of-bound values
-        # MAX_DELAY = 1.0  # 1 second maximum delay
-        # step_period = min(step_period, MAX_DELAY)
-
+        MAX_DELAY = t_sample   # maximum delay
+        step_period = min(step_period, MAX_DELAY)
 		
         
-        return steps_int, step_freq ,step_period, Position
-    
-while True:
+        return steps_int, step_period, Velocity, X
+
+
+Velocity = 0
+Position = 0
+steps = 0
+t_sample = 0.02
+t = 0
+n= 0
+while n <= 15:
     try:
-        time.sleep(25e-3)
-        Force = random.randrange(1,10)
-        print(Force, calculate_steps(Force))
+        Force = [7.1184,5.3633,3.6816,2.0938,0.6177,-0.7314,-1.9410,-3.0014,-3.9057,-4.6494,-5.2310,-5.6513,-5.9136,-6.0235,-5.9884,-5.8179]
+        steps, step_period,Velocity, Position = calculate_steps(Force[n],Velocity,Position,steps,t_sample)
+        print('u: ',Force[n])
+        print('Velocity: ',Velocity)
+        print('Position: ',Position)
+        print('Steps: ',steps)
+        print('Step Period: ',step_period)
+        n += 1    
+        time.sleep(t_sample)
+        t += t_sample
+        print(t)
     except KeyboardInterrupt:
         break
     except ValueError as e:

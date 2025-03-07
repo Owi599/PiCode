@@ -19,41 +19,27 @@ class CTRL():
         self.CPR = 500
         self.V_max = 2000
         
-    def calculate_steps(self, Force,t_sample):
+    def calculate_steps(self, Force,V_intit,X_init,t_sample):
         
-        #Force to toruqe conversion
-        Torque_required = Force * self.PulleyRad
-
         #Velocity and Speed in RPM
         Acceleration = Force/self.m_total
-        Velocity = Acceleration*t_sample 
+        Velocity = Acceleration*t_sample + V_intit
         Radial_Velocity = Velocity *self.PulleyRad
         Speed_RPM = Radial_Velocity * 9.549297
         
         #Check for maximum speed
         if abs(Speed_RPM) > self.V_max:
             print(Speed_RPM)
-            Speed_RPM = np.sign(Speed_RPM)*self.V_max - 1
+            Speed_RPM = np.sign(Speed_RPM)*self.V_max + (-np.sign(Speed_RPM)*1)  
             Velocity = Speed_RPM * 0.01047198
             print('Warning:Speed cannot be greater than 2000 rpm')
         
+        #caclcuate the positison
+        X = 0.5*Acceleration*t_sample**2 + V_intit*t_sample + X_init
         
-        #Calculate available torque
-        Torque_available = self.HoldingTorque * (1 - (abs(Speed_RPM)/self.V_max))
-        
-        #Check if required torque is greater than available torque
-        if Torque_available < Torque_required:
-            raise ValueError('Required torque is greater than available torque at this speed')
-        
-        #Calculate steps per revolution with microstepping    
-        Steps_per_rev = self.StepsPerRev * self.Microresolution
-        
-        
-        TorquePerStep = Torque_available/Steps_per_rev
-        
-        steps_int = max(1, int(round(Torque_required / TorquePerStep)))  # Ensures at least 1 step
+        steps_int = max(int(round(((40*self.CPR)/2*np.pi)*X)), 1)  # Ensures at least 1 step
         print(steps_int)
-        step_freq = (abs(Velocity) * Steps_per_rev) / (self.PulleyRad/2*np.pi)  # Frequency in Hz
+        step_freq = (abs(Velocity) * 3200) / (self.PulleyRad/2*np.pi)  # Frequency in Hz
         
         if step_freq == 0:
             step_period = 0  # Motor is not moving
@@ -63,13 +49,12 @@ class CTRL():
         # # Set maximum delay to prevent out-of-bound values
         MAX_DELAY = t_sample   # maximum delay
         step_period = min(step_period, MAX_DELAY)
-        print(step_period)
 		
         
-        return steps_int, step_period
+        return steps_int, step_period, Velocity, X
         
         
-    def Stepper(self,Force,direction,t_sample):
+    def Stepper(self,Force,direction,V_init,X_init,t_sample):
 
         if direction == 1:
             GPIO.output(self.DIR, GPIO.HIGH)
@@ -78,7 +63,7 @@ class CTRL():
         else:
             raise ValueError('Direction must be 1 or -1')
         
-        steps, step_period = self.calculate_steps(Force,t_sample)
+        steps, step_period, Velocity, Position = self.calculate_steps(Force,V_init,X_init,t_sample)
 
         for step in range(abs(steps)):
             GPIO.output(self.PulsePin,GPIO.HIGH)
