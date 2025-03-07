@@ -11,8 +11,8 @@ import time
 encoder_m     = ReadMotorEncoder(7, 8, max_steps=0)
 cpr_m         = 500
 
-encoder       = ReadRotaryEncoder(21,20,max_steps = 625, wrap=True)
-encoder.steps = 625
+encoder       = ReadRotaryEncoder(16,12,max_steps = 625, wrap=True)
+encoder.steps = 0
 cpr           = 1250
 
 last_time = time.time()

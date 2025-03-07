@@ -17,13 +17,13 @@ class ReadMotorEncoder(RotaryEncoder):
 		time_diff = current_time - l_t
 		step_diff = current_steps - l_s
 		
-		if time_diff == 0:
-			time_diff = 0.0001
-
+		min_time_diff = 0.001
+		
+		time_diff = max(time_diff, min_time_diff)
 
         
 		# Calculate speed 
-		velocity = (step_diff /time_diff) * (60 / CPR)  # Rpm
+		velocity = (step_diff /time_diff) * (2*np.pi/ CPR)  # rad/s
         
 		# Update last_time and last_steps
 		

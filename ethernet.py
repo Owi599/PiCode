@@ -29,7 +29,7 @@ DirPin = 10
 
 
 StepsPerRev = 200
-PulleyRad = 0.025
+PulleyRad = 0.0125
 HoldingTorque = 2
 Motor = CTRL(PulsePin,DirPin,StepsPerRev,PulleyRad,HoldingTorque)
 
@@ -53,7 +53,7 @@ last_steps_m  = encoder_m.steps
 #Communiaction Server/Clients initiation       
 UDP_SENSOR    = UDP(ETH_SERVER_IP,ETH_SERVER_PORT_SENSOR)
 UDP_CTRL      = UDP(ETH_CLIENT,ETH_SERVER_PORT_CTRL)
-t_sample = 0.26
+t_sample = 0.7
 Data  = [] 
 strg = ' '
 last_time   = time.time()
@@ -61,7 +61,7 @@ last_time_2 = time.time()
 last_time_m = time.time() 
 while True:
 	try:
-		time.sleep(t_sample)
+		time.sleep(t_sample/2)
 		Data.append(str("{:.2f}".format(encoder_m.readPosition(cpr_m))))
 		Data.append(str("{:.2f}".format(encoder.readPosition(cpr))))
 		Data.append(str("{:.2f}".format(encoder_2.readPosition(cpr))))

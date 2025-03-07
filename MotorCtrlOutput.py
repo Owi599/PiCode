@@ -26,14 +26,15 @@ class CTRL():
 
         #Velocity and Speed in RPM
         Acceleration = Force/self.m_total
-        Velocity = Acceleration*t_sample
-        Speed_RPM = (Velocity * 60)/(2*np.pi*self.PulleyRad)
+        Velocity = Acceleration*t_sample 
+        Radial_Velocity = Velocity *self.PulleyRad
+        Speed_RPM = Radial_Velocity * 9.549297
         
         #Check for maximum speed
         if abs(Speed_RPM) > self.V_max:
             print(Speed_RPM)
             Speed_RPM = np.sign(Speed_RPM)*self.V_max - 1
-            Velocity = (Speed_RPM * 2*np.pi*self.PulleyRad)/60
+            Velocity = Speed_RPM * 0.01047198
             print('Warning:Speed cannot be greater than 2000 rpm')
         
         
@@ -52,7 +53,7 @@ class CTRL():
         
         steps_int = max(1, int(round(Torque_required / TorquePerStep)))  # Ensures at least 1 step
         print(steps_int)
-        step_freq = (abs(Velocity) * Steps_per_rev) / (2*np.pi*self.PulleyRad)  # Frequency in Hz
+        step_freq = (abs(Velocity) * Steps_per_rev) / (self.PulleyRad/2*np.pi)  # Frequency in Hz
         
         if step_freq == 0:
             step_period = 0  # Motor is not moving
