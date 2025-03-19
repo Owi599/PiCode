@@ -22,7 +22,7 @@ def calculate_steps(Force, V_init, X_init, t_sample, pulley_radius):
     
     # System parameters
     mass = 0.232 + 0.127 + 0.127  # Total mass (kg)
-    steps_per_rev = 40 * 500  # Microstepping-enabled steps per revolution
+    steps_per_rev = 200  # Microstepping-enabled steps per revolution
 
     # Compute acceleration
     Acceleration = Force / mass  # (m/s^2)
@@ -62,7 +62,7 @@ Position = 0
 t_sample = 0.02  # Sampling time (s)
 pulley_radius = 0.0125  # Pulley radius in meters
 n = 0
-max_steps = 1000  # Maximum simulation iterations
+max_steps = 1501  # Maximum simulation iterations
 
 # Run simulation
 while n < max_steps:
