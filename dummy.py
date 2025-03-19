@@ -1,14 +1,14 @@
 import numpy as np
 import random
 import time
+from mat4py import loadmat
 
 def calculate_steps(Force,V_intit,X_init,step_init,t_sample):
-        
         #Velocity and Speed in RPM
-        Acceleration = (Force)/(.232+.127+.127) 
-        Velocity = Acceleration*t_sample + V_intit
-        Radial_Velocity = Velocity * 0.0125
-        Speed_RPM = Radial_Velocity * 9.549297
+        Acceleration = (Force)/(.232+.127+.127)  # Force/Mass = Acceleration in m/s^2
+        Velocity = Acceleration*t_sample + V_intit # Velocity in m/s
+        Radial_Velocity = Velocity * 0.0125 # Radial Velocity in rad/s
+        Speed_RPM = Radial_Velocity * 9.549297 # Speed in RPM
         
         #Check for maximum speed
         if abs(Speed_RPM) >2000:
@@ -20,7 +20,7 @@ def calculate_steps(Force,V_intit,X_init,step_init,t_sample):
         #caclcuate the positison
         X = 0.5*Acceleration*t_sample**2 + V_intit*t_sample + X_init
         
-        steps_int = max(int(round(((40*500)/2*np.pi)*abs(X))),1) - step_init # Ensures at least 1 step
+        steps_int = max(int(round(((40*500)/(0.0625*2*np.pi))*(X))),1)  # Ensures at least 1 step
         step_freq = (abs(Velocity) * 3200) / (0.0125/2*np.pi)  # Frequency in Hz
         
         if step_freq == 0:
@@ -30,11 +30,15 @@ def calculate_steps(Force,V_intit,X_init,step_init,t_sample):
         
         # # Set maximum delay to prevent out-of-bound values
         MAX_DELAY = t_sample   # maximum delay
-        step_period = min(step_period, MAX_DELAY)
+        step_period = min(step_period, MAX_DELAY) # Ensures that the period is not greater than the sample time
 		
         
-        return steps_int, step_period, Velocity, X
+        return steps_int, step_period  ,Velocity, X
 
+
+f = loadmat('matlab.mat')
+#print(f)
+Force = np.array(f['u'])
 
 Velocity = 0
 Position = 0
@@ -42,9 +46,8 @@ steps = 0
 t_sample = 0.02
 t = 0
 n= 0
-while n <= 15:
+while n <= 1000:
     try:
-        Force = [7.1184,5.3633,3.6816,2.0938,0.6177,-0.7314,-1.9410,-3.0014,-3.9057,-4.6494,-5.2310,-5.6513,-5.9136,-6.0235,-5.9884,-5.8179]
         steps, step_period,Velocity, Position = calculate_steps(Force[n],Velocity,Position,steps,t_sample)
         print('u: ',Force[n])
         print('Velocity: ',Velocity)
