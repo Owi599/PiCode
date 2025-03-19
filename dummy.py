@@ -1,65 +1,83 @@
 import numpy as np
-import random
 import time
 from mat4py import loadmat
 
-def calculate_steps(Force,V_intit,X_init,step_init,t_sample):
-        #Velocity and Speed in RPM
-        Acceleration = (Force)/(.232+.127+.127)  # Force/Mass = Acceleration in m/s^2
-        Velocity = Acceleration*t_sample + V_intit # Velocity in m/s
-        Radial_Velocity = Velocity * 0.0125 # Radial Velocity in rad/s
-        Speed_RPM = Radial_Velocity * 9.549297 # Speed in RPM
-        
-        #Check for maximum speed
-        if abs(Speed_RPM) >2000:
-            print(Speed_RPM)
-            Speed_RPM = np.sign(Speed_RPM)*2000 + (-np.sign(Speed_RPM)*1)  
-            Velocity = Speed_RPM * 0.01047198
-            print('Warning:Speed cannot be greater than 2000 rpm')
-        
-        #caclcuate the positison
-        X = 0.5*Acceleration*t_sample**2 + V_intit*t_sample + X_init
-        
-        steps_int = max(int(round(((40*500)/(0.0625*2*np.pi))*(X))),1)  # Ensures at least 1 step
-        step_freq = (abs(Velocity) * 3200) / (0.0125/2*np.pi)  # Frequency in Hz
-        
-        if step_freq == 0:
-            step_period = 0  # Motor is not moving
-        else:
-            step_period = 1 / step_freq
-        
-        # # Set maximum delay to prevent out-of-bound values
-        MAX_DELAY = t_sample   # maximum delay
-        step_period = min(step_period, MAX_DELAY) # Ensures that the period is not greater than the sample time
-		
-        
-        return steps_int, step_period  ,Velocity, X
+def calculate_steps(Force, V_init, X_init, t_sample, pulley_radius):
+    """
+    Calculate stepper motor movement based on LQR force input for a pulley-driven system.
+
+    Parameters:
+    - Force (float): Input force (N).
+    - V_init (float): Initial velocity (m/s).
+    - X_init (float): Initial position (m).
+    - t_sample (float): Sampling time (s).
+    - pulley_radius (float): Pulley radius (m).
+
+    Returns:
+    - steps (int): Number of steps to take.
+    - step_period (float): Time period per step (s).
+    - Velocity (float): Updated velocity (m/s).
+    - X (float): Updated position (m).
+    """
+    
+    # System parameters
+    mass = 0.232 + 0.127 + 0.127  # Total mass (kg)
+    steps_per_rev = 40 * 500  # Microstepping-enabled steps per revolution
+
+    # Compute acceleration
+    Acceleration = Force / mass  # (m/s^2)
+    
+    # Compute velocity
+    Velocity = V_init + Acceleration * t_sample  # (m/s)
+    Radial_Velocity = Velocity / pulley_radius  # (rad/s)
+    Speed_RPM = Radial_Velocity * (60 / (2 * np.pi))  # Convert to RPM
+
+    # Limit maximum speed
+    Speed_RPM = np.clip(Speed_RPM, -2000, 2000)
+    Velocity = Speed_RPM * (pulley_radius * 2 * np.pi) / 60  # Adjusted velocity
+
+    # Compute position
+    X = X_init + V_init * t_sample + 0.5 * Acceleration * t_sample**2
+
+    # Convert position to steps
+    steps = max(int(round((steps_per_rev / (2 * np.pi)) * (X / pulley_radius))), 1)  # At least 1 step
+
+    # Compute step frequency and period
+    step_freq = abs(Velocity) * steps_per_rev / (pulley_radius * 2 * np.pi)  # Hz
+    step_period = 1 / step_freq if step_freq > 0 else 0  # Avoid division by zero
+
+    # Ensure step period is within sample time limit
+    step_period = min(step_period, t_sample)
+
+    return steps, step_period, Velocity, X
 
 
+# Load force input from MATLAB file
 f = loadmat('matlab.mat')
-#print(f)
-Force = np.array(f['u'])
+Force = np.array(f['u'])  # Assuming 'u' is the force vector
 
+# Initialize variables
 Velocity = 0
 Position = 0
-steps = 0
-t_sample = 0.02
-t = 0
-n= 0
-while n <= 1000:
+t_sample = 0.02  # Sampling time (s)
+pulley_radius = 0.0125  # Pulley radius in meters
+n = 0
+max_steps = 1000  # Maximum simulation iterations
+
+# Run simulation
+while n < max_steps:
     try:
-        steps, step_period,Velocity, Position = calculate_steps(Force[n],Velocity,Position,steps,t_sample)
-        print('u: ',Force[n])
-        print('Velocity: ',Velocity)
-        print('Position: ',Position)
-        print('Steps: ',steps)
-        print('Step Period: ',step_period)
+        steps, step_period, Velocity, Position = calculate_steps(Force[n], Velocity, Position, t_sample, pulley_radius)
+
+        print(f"Time: {n * t_sample:.2f}s | Force: {Force[n]:.3f} N | Velocity: {Velocity:.3f} m/s | "
+              f"Position: {Position:.3f} m | Steps: {steps} | Step Period: {step_period:.6f} s")
+
         n += 1    
         time.sleep(t_sample)
-        t += t_sample
-        print(t)
+
     except KeyboardInterrupt:
+        print("\nSimulation stopped by user.")
         break
     except ValueError as e:
-        print(e)
+        print(f"Error: {e}")
         break
