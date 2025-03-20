@@ -2,7 +2,7 @@ import numpy as np
 import time
 from mat4py import loadmat
 
-def calculate_steps(Force, V_init, X_init, t_sample, pulley_radius):
+def calculate_steps(Force, V_init, X_init,steps_init, t_sample, pulley_radius):
     """
     Calculate stepper motor movement based on LQR force input for a pulley-driven system.
 
@@ -22,7 +22,7 @@ def calculate_steps(Force, V_init, X_init, t_sample, pulley_radius):
     
     # System parameters
     mass = 0.232 + 0.127 + 0.127  # Total mass (kg)
-    steps_per_rev = 200  # Microstepping-enabled steps per revolution
+    steps_per_rev = 3200  # Microstepping-enabled steps per revolution
 
     # Compute acceleration
     Acceleration = Force / mass  # (m/s^2)
@@ -40,7 +40,7 @@ def calculate_steps(Force, V_init, X_init, t_sample, pulley_radius):
     X = X_init + V_init * t_sample + 0.5 * Acceleration * t_sample**2
 
     # Convert position to steps
-    steps = max(int(round((steps_per_rev / (2 * np.pi)) * (X / pulley_radius))), 1)  # At least 1 step
+    steps = max(int(round((steps_per_rev / (2 * np.pi)) * (X / pulley_radius))), 1) - steps_init   # At least 1 step
 
     # Compute step frequency and period
     step_freq = abs(Velocity) * steps_per_rev / (pulley_radius * 2 * np.pi)  # Hz
@@ -54,6 +54,7 @@ def calculate_steps(Force, V_init, X_init, t_sample, pulley_radius):
 
 # Load force input from MATLAB file
 f = loadmat('matlab.mat')
+
 Force = np.array(f['u'])  # Assuming 'u' is the force vector
 
 # Initialize variables
@@ -63,11 +64,11 @@ t_sample = 0.02  # Sampling time (s)
 pulley_radius = 0.0125  # Pulley radius in meters
 n = 0
 max_steps = 1501  # Maximum simulation iterations
-
+steps = 0
 # Run simulation
 while n < max_steps:
     try:
-        steps, step_period, Velocity, Position = calculate_steps(Force[n], Velocity, Position, t_sample, pulley_radius)
+        steps, step_period, Velocity, Position = calculate_steps(Force[n], Velocity, Position,steps, t_sample, pulley_radius)
 
         print(f"Time: {n * t_sample:.2f}s | Force: {Force[n]:.3f} N | Velocity: {Velocity:.3f} m/s | "
               f"Position: {Position:.3f} m | Steps: {steps} | Step Period: {step_period:.6f} s")
