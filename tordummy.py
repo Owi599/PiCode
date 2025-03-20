@@ -11,7 +11,7 @@ microstepping = 16  # Microstepping factor
 total_steps_per_rev = steps_per_rev * microstepping  # Total microstepped steps
 t_sample = 0.02  # Sampling time (s)
 max_rpm = 2000  # Max allowable motor speed
-inertia = 0.5 * mass * pulley_radius**2  # Moment of inertia for a disk (J = 1/2 m r^2)
+inertia = (0.5 * mass * pulley_radius**2) + 4.8e-5 # Moment of inertia for a disk (J = 1/2 m r^2)
 
 # Initialize pigpio (Simulation only)
 pi = pigpio.pi()  # Initializes pigpio library
@@ -57,13 +57,12 @@ try:
     while n < max_steps:
         # Compute angular velocity from force (via torque)
         Omega = force_to_angular_velocity(Force[n], Omega)
-        
+        Vel = Omega * pulley_radius
         # Convert angular velocity to step frequency and compute steps
         step_freq, steps = angular_velocity_to_step_frequency(Omega)
 
         # Print simulation results
-        print(f"Time: {n * t_sample:.2f}s | Force: {Force[n]:.3f} N | Angular Velocity: {Omega:.3f} rad/s | "
-              f"Step Frequency: {step_freq:.2f} Hz | Steps: {steps}")
+        print(f"Time: {n * t_sample:.2f}s | Force: {Force[n]:.3f} N | Angular Velocity: {Omega:.3f} rad/s | Velocity: {Vel:.3f} m/s | Step Frequency: {step_freq:.2f} Hz | Steps: {steps}")
 
         # Advance simulation
         n += 1
