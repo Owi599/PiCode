@@ -40,7 +40,7 @@ def calculate_steps(Force, V_init, X_init,steps_init, t_sample, pulley_radius):
     X = X_init + V_init * t_sample + 0.5 * Acceleration * t_sample**2
 
     # Convert position to steps
-    steps = max(int(round((steps_per_rev / (2 * np.pi)) * (X / pulley_radius))), 1) - steps_init   # At least 1 step
+    steps = max(int(round((steps_per_rev / (2 * np.pi)) * (abs(X) / pulley_radius))), 1)    # At least 1 step
 
     # Compute step frequency and period
     step_freq = abs(Velocity) * steps_per_rev / (pulley_radius * 2 * np.pi)  # Hz
