@@ -2,6 +2,24 @@ from LQR import lqr
 import numpy as np
 from mat4py import loadmat
 import time
+import _thread
+
+shared_value = None
+shared_value2= None
+
+class LQR_thread(lqr):
+    def control_output_d(self,Q,R,sys):
+        global shared_value
+        global shared_value2
+        x = shared_value
+        # Calculate the control output using the LQR controller
+        u = np.clip(-self.LQR_discrete(Q,R,sys) @ x, -8.5, +8.5)
+        shared_value2 = u
+        print('Control Output:', u)
+        return u
+    
+
+
 
 # Parameter defintion for pendel
 pi = np.pi
@@ -16,6 +34,17 @@ I1 = m1 * LC1**2 # moment of inertia 1 in kg.m^2
 I2 = m2 * LC2**2 # moment of inertia 2 in kg.m^2
 g = 9.81 # in m/s^2
 
+def readValues(x,n):
+    global shared_value
+    s = [x[n][0], x[n][1], x[n][2], x[n][3], x[n][4], x[n][5]]
+    shared_value = s
+    return s
+
+def Move():
+    global shared_value2
+    for i in range(int(shared_value2)):
+        print('Moving')
+        time.sleep(0.01)
 
 # Intermediates
 h1 = mc + m1 + m2
@@ -78,16 +107,7 @@ Controller = lqr(A, B, C, D, Q, R)
 sys_C, sys_D = Controller.C2D(A, B, C, D, T_s)
 #K = Controller.LQR(Q, R, sys_C)
 K_d = Controller.LQR_discrete(Q, R, sys_D)
-# dominant_eigenvalue, time_constant = Controller.compute_eigenvalues(Q, R, sys_C)
-# dominant_eigenvalue_d, time_constant_d = Controller.compute_eigenvalues_discrete(Q, R, sys_D)
-# print('Discrete Eigenvalue:', dominant_eigenvalue_d)
-# print('Discrete Time Constant:', time_constant_d)
-# print('Continuous Eigenvalue:', dominant_eigenvalue)
-# print('Continuous Time Constant:', time_constant)
 
-# x = np.array([[0], [pi], [0], [0], [0], [0]])
-
-# print('Controller Output:', controller_output)
 
 # Load force input from MATLAB file
 x = loadmat('x.mat')
@@ -96,13 +116,13 @@ x = np.array(x['x'])  # Assuming 'u' is the force vector
 n = 0
 t0 = time.time()
 time_array = []
+
+_thread.start_new_thread(Controller.contol_output_d, (Q, R, sys_D))
+_thread.start_new_thread(Move, ())
 while n < 1500:
-    s = [x[n][0], x[n][1], x[n][2], x[n][3], x[n][4], x[n][5]]
-    time.sleep(0.02)
-    print('State:', s)
-    controller_output = Controller.contol_output_d(s, Q, R, sys_D)
+    print(readValues(x,n))
+    time.sleep(0.01)
     n +=1
-    print('Controller Output:', controller_output)
     tf = time.time()
     dt = tf-t0
     time_array.append(dt)
