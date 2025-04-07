@@ -6,17 +6,20 @@ import threading
 
 shared_value = None
 shared_value2 = None
-lock = threading.Lock()  # Create a lock for synchronization
+done1 = False  # Flag to indicate when to stop the threads
+done2 = False
 
 class LQR_thread(lqr):
     def control_output_d(self, Q, R, sys):
         global shared_value
         global shared_value2
         x = shared_value
-        # Calculate the control output using the LQR controller
-        u = np.clip(-self.LQR_discrete(Q, R, sys) @ x, -8.5, +8.5)
-        with lock:  # Acquire the lock before modifying shared_value2
-            shared_value2 = u
+        while done1 and not done2:
+            # Calculate the control output using the LQR controller
+            u = np.clip(-self.LQR_discrete(Q, R, sys) @ x, -8.5, +8.5)
+            done1 = False
+            done2 = True
+        shared_value2 = u
         print('Control Output:', u)
         return u
 
@@ -33,18 +36,35 @@ I1 = m1 * LC1**2  # moment of inertia 1 in kg.m^2
 I2 = m2 * LC2**2  # moment of inertia 2 in kg.m^2
 g = 9.81  # in m/s^2
 
-def readValues(x, n):
+def readValues(x):
     global shared_value
-    s = [x[n][0], x[n][1], x[n][2], x[n][3], x[n][4], x[n][5]]
-    with lock:  # Acquire the lock before modifying shared_value
-        shared_value = s
+    n = 0
+    t0 = time.time()
+    while not done1 and not done2:
+        s = [x[n][0], x[n][1], x[n][2], x[n][3], x[n][4], x[n][5]]
+        n += 1
+        time.sleep(0.01)
+        if n== len(x):
+            break
+        
+        tf = time.time()
+        dt = tf - t0
+        time_array.append(dt)
+        print('Time:', dt)
+        t0 = tf
+        done1 = True
+    time_array = np.array(time_array)
+    mean = np.mean(time_array)
+    print(mean)
+    shared_value = s
     return s
 
 def Move():
     global shared_value2
-    for i in range(int(shared_value2)):
-        print('Moving')
-        time.sleep(0.01)
+    while not done1 and done2:
+        for i in range(int(shared_value2)):
+            print('Moving')
+            time.sleep(0.01)
 
 # Intermediates
 h1 = mc + m1 + m2
@@ -106,8 +126,6 @@ K_d = Controller.LQR_discrete(Q, R, sys_D)
 # Load force input from MATLAB file
 x = loadmat('x.mat')
 x = np.array(x['x'])  # Assuming 'u' is the force vector
-n = 0
-t0 = time.time()
 time_array = []
 
 # Create threads
@@ -118,20 +136,9 @@ move_thread = threading.Thread(target=Move)
 control_thread.start()
 move_thread.start()
 
-while n < 1500:
-    print(readValues(x, n))
-    time.sleep(0.01)
-    n += 1
-    tf = time.time()
-    dt = tf - t0
-    time_array.append(dt)
-    print('Time:', dt)
-    t0 = tf
+   
+readValues(x)
 
-# Wait for threads to complete
-control_thread.join()
-move_thread.join()
 
-time_array = np.array(time_array)
-mean = np.mean(time_array)
-print(mean)
+
+
