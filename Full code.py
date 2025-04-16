@@ -7,46 +7,37 @@ from PhotoelectricSensor import EndSwitch
 from MotorCtrlOutput import CTRL
 import RPi.GPIO as GPIO
 import threading
+from collections import deque
 
-GPIO.setmode(GPIO.BCM)  # allow GPIO pin numbering
+# GPIO Setup
+GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
 
-#constant values
-
-#shared variables
-data_lock = threading.Lock()
-data = {
-    'read': None,
-    'calculate': None,
-    'control': None,
-}
-
-#Pins
-SwitchPin_1= 4
-SwitchPin_2= 17
-PulsePin= 9
-DirPin= 10
-Encoder1A=21
-Encoder1B=20
-Encoder2A=16
-Encoder2B=12
-MotorEncoderA= 7
+# Pins
+SwitchPin_1 = 4
+SwitchPin_2 = 17
+PulsePin = 9
+DirPin = 10
+Encoder1A = 21
+Encoder1B = 20
+Encoder2A = 16
+Encoder2B = 12
+MotorEncoderA = 7
 MotorEncoderB = 8
 
-# Parameter defintion for pendel
+# Pendulum Parameters
 pi = np.pi
-mc = 0.232 # cart mass in Kg
-m1 = 0.127 # mass of pendulum arm 1 in Kg
-m2 = 0.127 # mass of pendulum arm 2 in Kg
-L1 = 0.3   # length of first arm in m
-L2 = 0.3   # length of second arm in m
-LC1 = 0.3 # in m
-LC2 = 0.15 # in m
-I1 = m1 * LC1**2 # moment of inertia 1 in kg.m^2
-I2 = m2 * LC2**2 # moment of inertia 2 in kg.m^2
-g = 9.81 # in m/s^2
+mc = 0.232
+m1 = 0.127
+m2 = 0.127
+L1 = 0.3
+L2 = 0.3
+LC1 = 0.3
+LC2 = 0.15
+I1 = m1 * LC1**2
+I2 = m2 * LC2**2
+g = 9.81
 
-# Intermediates
 h1 = mc + m1 + m2
 h2 = m1 * LC1 + m2 * L1
 h3 = m2 * LC2
@@ -56,159 +47,124 @@ h6 = m2 * LC2**2 + I2
 h7 = m1 * LC1 * g + m2 * L1 * g
 h8 = m2 * LC2 * g
 
-# Dynamics
-M = np.array(
-    [
-        [1, 0, 0, 0, 0, 0],
-        [0, 1, 0, 0, 0, 0],
-        [0, 0, 1, 0, 0, 0],
-        [0, 0, 0, h1, h2, h3],
-        [0, 0, 0, h2, h4, h5],
-        [0, 0, 0, h3, h5, h6],
-    ]
-)
-N = np.array(
-    [
-        [0, 0, 0, 1, 0, 0],
-        [0, 0, 0, 0, 1, 0],
-        [0, 0, 0, 0, 0, 1],
-        [0, 0, 0, 0, 0, 0],
-        [0, -h7, 0, 0, 0, 0],
-        [0, 0, -h8, 0, 0, 0],
-    ]
-)
+M = np.array([
+    [1, 0, 0, 0, 0, 0],
+    [0, 1, 0, 0, 0, 0],
+    [0, 0, 1, 0, 0, 0],
+    [0, 0, 0, h1, h2, h3],
+    [0, 0, 0, h2, h4, h5],
+    [0, 0, 0, h3, h5, h6],
+])
+N = np.array([
+    [0, 0, 0, 1, 0, 0],
+    [0, 0, 0, 0, 1, 0],
+    [0, 0, 0, 0, 0, 1],
+    [0, 0, 0, 0, 0, 0],
+    [0, -h7, 0, 0, 0, 0],
+    [0, 0, -h8, 0, 0, 0],
+])
 F = np.array([[0], [0], [0], [1], [0], [0]])
 
-# linearized System Matrices
 A = np.linalg.solve(M, N)
 B = np.linalg.solve(M, F)
 C = np.array([[1, 0, 0, 0, 0, 0]])
 D = np.array([[0]])
-T_s = 0.02  # Sampling time in seconds
+T_s = 0.02
 
-#LQR Matrices
-Q = np.array(
-    [
-        [4000, 0, 0, 0, 0, 0],
-        [0, 50, 0, 0, 0, 0],
-        [0, 0, 50, 0, 0, 0],
-        [0, 0, 0, 100, 0, 0],
-        [0, 0, 0, 0, 10, 0],
-        [0, 0, 0, 0, 0, 10],
-    ]
-)
+Q = np.diag([4000, 50, 50, 100, 10, 10])
 R = np.array([[100]])
 
-# Motor Parameters
 StepsPerRev = 200
 PulleyRad = 0.0125
 HoldingTorque = 2
 cpr_m = 500
-
-#Encoder Parameters
 Max_steps = 625
 cpr = 1250
 
-# Object instantiation
-
-# #Endswitch
-# EndSwitch = EndSwitch(SwitchPin_1)
-# EndSwitch_2 = EndSwitch(SwitchPin_2)
-
-# Encoders
+# Instantiate hardware components
 encoder = ReadRotaryEncoder(Encoder1A, Encoder1B, max_steps=Max_steps, wrap=True)
 encoder_2 = ReadRotaryEncoder(Encoder2A, Encoder2B, max_steps=Max_steps, wrap=True)
-encoder.steps = 625
-encoder_2.steps = 0
-
-# Motor
-Motor = CTRL(PulsePin, DirPin, StepsPerRev, PulleyRad, HoldingTorque)
-
-# Motor Encoder
 encoder_m = ReadMotorEncoder(MotorEncoderA, MotorEncoderB, max_steps=0)
-
-# Controller
+Motor = CTRL(PulsePin, DirPin, StepsPerRev, PulleyRad, HoldingTorque)
 Controller = lqr(A, B, C, D, Q, R)
 sys_C, sys_D = Controller.C2D(A, B, C, D, T_s)
 K_d = Controller.LQR_discrete(Q, R, sys_D)
 
-# main loopp function
-def readSenesors():
-    while True:
-        try:
-            with data_lock:
-                X0.append(encoder_m.readPosition(cpr_m))
-                X0.append(encoder.readPosition(cpr))
-                X0.append(encoder_2.readPosition(cpr))
-                V, last_time_m, last_steps_m = encoder_m.readVelocity(cpr_m, last_time_m, last_steps_m)
-                X0.append(V)
-                W1, last_time, last_steps = encoder.readVelocity(cpr, last_time, last_steps)
-                X0.append(W1)
-                W2, last_time_2, last_steps_2 = encoder_2.readVelocity(cpr, last_time_2, last_steps_2)
-                X0.append(W2)
-                print('States:', X0)
-                data['read'] = X0
-                X0 = []  # Reset state vector for next iteration
-            time.sleep(0.02)
-
-        except KeyboardInterrupt:
-            pass
-        except Exception as e:
-            print(f"Error: {e}")
-
-
-def ControlOutput(lqr):
-    while True:
-        try:
-            with data_lock:
-                if data['read'] is not None:
-                    X0 = data['read']
-                # Control output calculation
-                control_output = Controller.control_output(X0, Q, R, sys_D)
-                print('Control Output:', control_output)
-            time.sleep(0.02)
-        except KeyboardInterrupt:
-            pass
-        except Exception as e:
-            print(f"Control output error: {e}")
-
-
-#Variables
-
-# last step count for velocity calculation
+# Variables for velocity
 last_steps = encoder.steps
-last_steps_2	  = encoder_2.steps
-last_steps_m  = encoder_m.steps
-
-# last time for velocity calculation
+last_steps_2 = encoder_2.steps
+last_steps_m = encoder_m.steps
 last_time = time.time()
 last_time_2 = time.time()
 last_time_m = time.time()
 
-# sampling time
-t_sample = 0.02
+# Shared deques and lock
+read_queue = deque(maxlen=3)
+control_queue = deque(maxlen=3)
+lock = threading.Lock()
 
-#empty State vector
-X0 = []
+# Thread 1: Read Sensors
+def readSensors():
+    global last_time, last_time_2, last_time_m
+    global last_steps, last_steps_2, last_steps_m
+    while True:
+        try:
+            X0 = []
+            X0.append(encoder_m.readPosition(cpr_m))
+            X0.append(encoder.readPosition(cpr))
+            X0.append(encoder_2.readPosition(cpr))
+            V, last_time_m, last_steps_m = encoder_m.readVelocity(cpr_m, last_time_m, last_steps_m)
+            X0.append(V)
+            W1, last_time, last_steps = encoder.readVelocity(cpr, last_time, last_steps)
+            X0.append(W1)
+            W2, last_time_2, last_steps_2 = encoder_2.readVelocity(cpr, last_time_2, last_steps_2)
+            X0.append(W2)
+            with lock:
+                read_queue.appendleft(X0)
+                print("Read:", X0)
+            time.sleep(T_s)
+        except Exception as e:
+            print("Read Error:", e)
 
+# Thread 2: Compute Control
+def computeControl():
+    while True:
+        try:
+            with lock:
+                if len(read_queue) >= 2:
+                    x_k_1 = read_queue[1]
+                    u_k_1 = Controller.control_output(x_k_1, Q, R, sys_D)
+                    control_queue.appendleft(u_k_1)
+                    print("Control:", u_k_1)
+            time.sleep(T_s)
+        except Exception as e:
+            print("Compute Error:", e)
 
-#t0 for time measurement
-t0 = time.time()
-time_array = []
+# Thread 3: Actuate Motor
+def actuateMotor():
+    while True:
+        try:
+            with lock:
+                if len(control_queue) >= 2:
+                    u_k_2 = control_queue[1]
+                    Motor.rotate(u_k_2)  # Replace with actual actuation logic
+                    print("Actuation:", u_k_2)
+            time.sleep(T_s)
+        except Exception as e:
+            print("Actuation Error:", e)
 
+# Launch threads
+t1 = threading.Thread(target=readSensors)
+t2 = threading.Thread(target=computeControl)
+t3 = threading.Thread(target=actuateMotor)
 
-while True: 
+t1.start()
+t2.start()
+t3.start()
 
-    tf = time.time()
-    dt = tf-t0
-    time_array.append(dt)
-    print('Time:', dt)
-    t0 = tf
-    X0 = []  # Reset state vector for next iteration
-    if KeyboardInterrupt:
-        break  
-
-time_array = np.array(time_array)
-mean = np.mean(time_array)
-print(mean)
-GPIO.cleanup()
+try:
+    while True:
+        time.sleep(1)
+except KeyboardInterrupt:
+    GPIO.cleanup()
+    print("Stopped by user.")
