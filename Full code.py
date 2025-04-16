@@ -1,7 +1,37 @@
 from LQR import lqr
 import numpy as np
-from mat4py import loadmat
 import time
+from rotaryencoder import ReadRotaryEncoder
+from motorencoder import ReadMotorEncoder
+from PhotoelectricSensor import EndSwitch
+from MotorCtrlOutput import CTRL
+import RPi.GPIO as GPIO
+import threading
+
+GPIO.setmode(GPIO.BCM)  # allow GPIO pin numbering
+GPIO.setwarnings(False)
+
+#constant values
+
+#shared variables
+data_lock = threading.Lock()
+data = {
+    'read': None,
+    'calculate': None,
+    'control': None,
+}
+
+#Pins
+SwitchPin_1= 4
+SwitchPin_2= 17
+PulsePin= 9
+DirPin= 10
+Encoder1A=21
+Encoder1B=20
+Encoder2A=16
+Encoder2B=12
+MotorEncoderA= 7
+MotorEncoderB = 8
 
 # Parameter defintion for pendel
 pi = np.pi
@@ -16,7 +46,6 @@ I1 = m1 * LC1**2 # moment of inertia 1 in kg.m^2
 I2 = m2 * LC2**2 # moment of inertia 2 in kg.m^2
 g = 9.81 # in m/s^2
 
-
 # Intermediates
 h1 = mc + m1 + m2
 h2 = m1 * LC1 + m2 * L1
@@ -26,9 +55,6 @@ h5 = m2 * LC2 * L1
 h6 = m2 * LC2**2 + I2
 h7 = m1 * LC1 * g + m2 * L1 * g
 h8 = m2 * LC2 * g
-
-
-
 
 # Dynamics
 M = np.array(
@@ -60,7 +86,6 @@ C = np.array([[1, 0, 0, 0, 0, 0]])
 D = np.array([[0]])
 T_s = 0.02  # Sampling time in seconds
 
-
 #LQR Matrices
 Q = np.array(
     [
@@ -74,41 +99,116 @@ Q = np.array(
 )
 R = np.array([[100]])
 
+# Motor Parameters
+StepsPerRev = 200
+PulleyRad = 0.0125
+HoldingTorque = 2
+cpr_m = 500
+
+#Encoder Parameters
+Max_steps = 625
+cpr = 1250
+
+# Object instantiation
+
+# #Endswitch
+# EndSwitch = EndSwitch(SwitchPin_1)
+# EndSwitch_2 = EndSwitch(SwitchPin_2)
+
+# Encoders
+encoder = ReadRotaryEncoder(Encoder1A, Encoder1B, max_steps=Max_steps, wrap=True)
+encoder_2 = ReadRotaryEncoder(Encoder2A, Encoder2B, max_steps=Max_steps, wrap=True)
+encoder.steps = 625
+encoder_2.steps = 0
+
+# Motor
+Motor = CTRL(PulsePin, DirPin, StepsPerRev, PulleyRad, HoldingTorque)
+
+# Motor Encoder
+encoder_m = ReadMotorEncoder(MotorEncoderA, MotorEncoderB, max_steps=0)
+
+# Controller
 Controller = lqr(A, B, C, D, Q, R)
 sys_C, sys_D = Controller.C2D(A, B, C, D, T_s)
-#K = Controller.LQR(Q, R, sys_C)
 K_d = Controller.LQR_discrete(Q, R, sys_D)
-# dominant_eigenvalue, time_constant = Controller.compute_eigenvalues(Q, R, sys_C)
-# dominant_eigenvalue_d, time_constant_d = Controller.compute_eigenvalues_discrete(Q, R, sys_D)
-# print('Discrete Eigenvalue:', dominant_eigenvalue_d)
-# print('Discrete Time Constant:', time_constant_d)
-# print('Continuous Eigenvalue:', dominant_eigenvalue)
-# print('Continuous Time Constant:', time_constant)
 
-# x = np.array([[0], [pi], [0], [0], [0], [0]])
+# main loopp function
+def readSenesors():
+    while True:
+        try:
+            with data_lock:
+                X0.append(encoder_m.readPosition(cpr_m))
+                X0.append(encoder.readPosition(cpr))
+                X0.append(encoder_2.readPosition(cpr))
+                V, last_time_m, last_steps_m = encoder_m.readVelocity(cpr_m, last_time_m, last_steps_m)
+                X0.append(V)
+                W1, last_time, last_steps = encoder.readVelocity(cpr, last_time, last_steps)
+                X0.append(W1)
+                W2, last_time_2, last_steps_2 = encoder_2.readVelocity(cpr, last_time_2, last_steps_2)
+                X0.append(W2)
+                print('States:', X0)
+                data['read'] = X0
+                X0 = []  # Reset state vector for next iteration
+            time.sleep(0.02)
 
-# print('Controller Output:', controller_output)
+        except KeyboardInterrupt:
+            pass
+        except Exception as e:
+            print(f"Error: {e}")
 
-# Load force input from MATLAB file
-x = loadmat('x.mat')
 
-x = np.array(x['x'])  # Assuming 'u' is the force vector
-n = 0
+def ControlOutput(lqr):
+    while True:
+        try:
+            with data_lock:
+                if data['read'] is not None:
+                    X0 = data['read']
+                # Control output calculation
+                control_output = Controller.control_output(X0, Q, R, sys_D)
+                print('Control Output:', control_output)
+            time.sleep(0.02)
+        except KeyboardInterrupt:
+            pass
+        except Exception as e:
+            print(f"Control output error: {e}")
+
+
+#Variables
+
+# last step count for velocity calculation
+last_steps = encoder.steps
+last_steps_2	  = encoder_2.steps
+last_steps_m  = encoder_m.steps
+
+# last time for velocity calculation
+last_time = time.time()
+last_time_2 = time.time()
+last_time_m = time.time()
+
+# sampling time
+t_sample = 0.02
+
+#empty State vector
+X0 = []
+
+
+#t0 for time measurement
 t0 = time.time()
 time_array = []
-while n < 1500:
-    s = [x[n][0], x[n][1], x[n][2], x[n][3], x[n][4], x[n][5]]
-    time.sleep(0.02)
-    print('State:', s)
-    controller_output = Controller.contol_output_d(s, Q, R, sys_D)
-    n +=1
-    print('Controller Output:', controller_output)
+
+
+while True: 
+
     tf = time.time()
     dt = tf-t0
     time_array.append(dt)
     print('Time:', dt)
     t0 = tf
+    X0 = []  # Reset state vector for next iteration
+    if KeyboardInterrupt:
+        break  
 
 time_array = np.array(time_array)
 mean = np.mean(time_array)
 print(mean)
+GPIO.cleanup()

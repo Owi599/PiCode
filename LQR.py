@@ -59,6 +59,7 @@ class lqr:
         
         return np.clip(-self.LQR(Q,R,sys) @ x, -8.5, +8.5)
 
-    def contol_output_d(self,x_k,Q,R,sys):
+    def control_output_d(self,x_k,Q,R,sys):
+            
         return np.clip(-self.LQR_discrete(Q,R,sys) @ x_k, -8.5, +8.5)
 

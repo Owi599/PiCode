@@ -188,6 +188,6 @@ try:
 finally:
     # Cleanup - only join if threads were created
     if control_thread:
-        control_thread.join(timeout=1)
+        control_thread.join(timeout=0.2)
     if move_thread:
-        move_thread.join(timeout=1)
+        move_thread.join(timeout=0.2)
