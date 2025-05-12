@@ -4,28 +4,28 @@ import time
 
 class ReadRotaryEncoder(RotaryEncoder):
 	
-	def readPosition(self,CPR):
+	def read_position(self,cpr):
 		
-		sensorFloat = (2*np.pi/ CPR)*self.steps
+		sensorFloat = (2*np.pi/ cpr)*self.steps
 		return sensorFloat
 
-	def readVelocity(self,CPR,l_t ,l_s):
+	def read_velocity(self,cpr,l_t ,l_s):
 		
-		current_time = time.time()
-		current_steps = self.steps
+		currentTime = time.time()
+		currentSteps = self.steps
 		
 		# Calculate the time difference and step difference
-		time_diff = current_time - l_t
-		step_diff = current_steps - l_s
+		timeDiff = currentTime - l_t
+		stepDiff = currentSteps - l_s
 		
-		max_steps = 625
-		step_diff = step_diff 
 		
-		min_time_diff = 0.001
-		time_diff = max(time_diff, min_time_diff)
+		stepDiff = stepDiff 
+		
+		minTimeDiff = 0.001
+		timeDiff = max(timeDiff, minTimeDiff)
 		
 		# Calculate angular velocity
-		angular_velocity = (step_diff / time_diff) * (2*np.pi/CPR)  
+		angularVelocity = (stepDiff / timeDiff) * (2*np.pi/cpr)  
 
 		
-		return angular_velocity, current_time, current_steps
+		return angularVelocity, currentTime, currentSteps

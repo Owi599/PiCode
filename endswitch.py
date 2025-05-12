@@ -9,15 +9,15 @@ class EndSwitch():
         GPIO.setup(self.pin,GPIO.IN)
         
 
-    def read(self):
+    def read_sensor(self):
         while True:
             if GPIO.input(self.pin):
                 return 1
             else:
                 return 0
             
-    def Object_detected(self):
+    def is_object_detected(self):
         while True:
             if self.read() == 0:
-                return 1
+                return True
     

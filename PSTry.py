@@ -1,5 +1,5 @@
 import RPi.GPIO as GPIO
-from PhotoelectricSensor import EndSwitch
+from endswitch import EndSwitch
 import time
 
 GPIO.setmode(GPIO.BCM)

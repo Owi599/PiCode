@@ -1,10 +1,10 @@
-from LQR import lqr
+from lqr import LQR
 import numpy as np
 import time
 from rotaryencoder import ReadRotaryEncoder
 from motorencoder import ReadMotorEncoder
-from PhotoelectricSensor import EndSwitch
-from MotorCtrlOutput import CTRL
+from endswitch import EndSwitch
+from motorControl import CTRL
 import RPi.GPIO as GPIO
 import threading
 from collections import deque
@@ -86,7 +86,7 @@ encoder = ReadRotaryEncoder(Encoder1A, Encoder1B, max_steps=Max_steps, wrap=True
 encoder_2 = ReadRotaryEncoder(Encoder2A, Encoder2B, max_steps=Max_steps, wrap=True)
 encoder_m = ReadMotorEncoder(MotorEncoderA, MotorEncoderB, max_steps=0)
 Motor = CTRL(PulsePin, DirPin, StepsPerRev, PulleyRad, HoldingTorque)
-Controller = lqr(A, B, C, D, Q, R)
+Controller = LQR(A, B, C, D, Q, R)
 sys_C, sys_D = Controller.C2D(A, B, C, D, T_s)
 K_d = Controller.LQR_discrete(Q, R, sys_D)
 

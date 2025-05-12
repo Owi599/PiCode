@@ -2,8 +2,8 @@
 from com import UDP, TCP
 from rotaryencoder import ReadRotaryEncoder#child class wherer all sensor reading related methods are stored
 from motorencoder import ReadMotorEncoder
-from PhotoelectricSensor import EndSwitch
-from MotorCtrlOutput import CTRL
+from endswitch import EndSwitch
+from motorControl import CTRL
 import RPi.GPIO as GPIO
 import numpy as np
 import time
