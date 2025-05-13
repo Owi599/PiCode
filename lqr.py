@@ -1,8 +1,6 @@
 import numpy as np  # library for nummeric operations
 import control as ct # control library 
-import matplotlib.pyplot as plt # visualization library 
 from scipy.linalg import solve_continuous_are, solve_discrete_are # linearization library 
-import time # time library
 
 # Class defining the LQR controller
 class LQR: 

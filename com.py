@@ -3,55 +3,57 @@ import socket
 #This is a class for the communication interface from the RPi side (UDP)
 
 class UDP:
-	def __init__(self,IP,PORT):
-		self.IP_addr = IP
-		self.PORT_num = PORT
+	def __init__(self,ip,port):
+		self.ipAddress = ip
+		self.portNumber = port
 
-	def CreateServer(self):
-		ServerSocket = socket.socket(family=socket.AF_INET, type = socket.SOCK_DGRAM)
-		ServerSocket.bind((self.IP_addr,self.PORT_num))
-		ServerSocket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1024*1024)
-		ServerSocket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1024*1024)	
-		return ServerSocket
+	def create_server(self):
+		SERVERSOCKET = socket.socket(family=socket.AF_INET, type = socket.SOCK_DGRAM)
+		SERVERSOCKET.bind((self.ipAddress,self.portNumber))
+		SERVERSOCKET.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1024*1024)
+		SERVERSOCKET.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1024*1024)	
+		return SERVERSOCKET
 			
-	def CreateClient(self):
-		ClientSocket = socket.socket(family=socket.AF_INET,type =socket.SOCK_DGRAM)
-		ClientSocket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1024*1024)
-		ClientSocket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1024*1024)
-		return ClientSocket
+	def create_client(self):
+		CLIENTSOCKET = socket.socket(family=socket.AF_INET,type =socket.SOCK_DGRAM)
+		CLIENTSOCKET.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1024*1024)
+		CLIENTSOCKET.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1024*1024)
+		return CLIENTSOCKET
 		
-	def SendData(self,data):
-			self.CreateClient().sendto(str.encode(data),(self.IP_addr,self.PORT_num))
+	def send_data(self,data,client):
+			client.sendto(str.encode(data),(self.ipAddress,self.portNumber))
 	
-	def RecData(self):
-		msgfromServer = self.CreateServer().recvfrom(1024)
-		data = msgfromServer[0]
-		Recv_Data = data.decode()
-		return Recv_Data
+	def receive_data(self,server):
+		msgFromServer = server.recvfrom(1024)
+		data = msgFromServer[0]
+		receivedData = data.decode()
+		return receivedData
 
 
 #This is a class for the communication interface from the RPi side (TCP)
 
 
 class TCP:
-	def __init__(self,IP,PORT):
-		self.IP_addr = IP
-		self.PORT_num = PORT
+	def __init__(self,ip,port):
+		self.ipAddress = ip
+		self.portNumber = port
 
-	def CreateServer(self):
-		ServerSocket = socket.socket(family=socket.AF_INET, type = socket.SOCK_STREAM)
-		ServerSocket.bind((self.IP_addr,self.PORT_num))
-		ServerSocket.listen()
+	def create_server(self):
+		SERVERSOCKET = socket.socket(family=socket.AF_INET, type = socket.SOCK_STREAM)
+		SERVERSOCKET.bind((self.ipAddress,self.portNumber))
+		SERVERSOCKET.listen()
+		return SERVERSOCKET
 	
-	def CreateClient(self):
-		ClientSocket = socket.socket(family=socket.AF_INET,type =socket.SOCK_STREAM)
-		ClientSocket.connect((self.IP_addr,self.PORT_num))
+	def create_client(self):
+		CLIENTSOCKET = socket.socket(family=socket.AF_INET,type =socket.SOCK_STREAM)
+		CLIENTSOCKET.connect((self.ipAddress,self.portNumber))
+		return CLIENTSOCKET
 	
-	def SendData(self,data):
-		self.CreateClient().sendall(str.encode(data))
+	def send_data(self,data,client):
+		client.sendall(str.encode(data))
 		
-	def RecData(self):
-		conn , addr = self.CreateServer().accept()
-		data = conn.recv(1024)
-		Recv_Data = data.decode()		
-		return Recv_Data
+	def receive_data(self,server):
+		connection , address = server.accept()
+		data = connection.recv(1024)
+		receivedData = data.decode()		
+		return receivedData

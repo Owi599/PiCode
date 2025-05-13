@@ -1,14 +1,13 @@
 # Necessary imports
 from rotaryencoder import ReadRotaryEncoder # Class for reading and parsing rotary encoders' data
 from motorencoder import ReadMotorEncoder   # Class for reading and parsing motor encoders' data
-from endswitch import EndSwitch   # Class for reading and parsing photoelectronic sensors' data
+from endswitch import EndSwitch             # Class for reading and parsing photoelectronic sensors' data
 from lqr import LQR                         # Class for Linear Quadratic Regulator (LQR) control
-from motorControl import MotorControl            # Class for controlling motor output
+from motorControl import MotorControl       # Class for controlling motor output
 import RPi.GPIO as GPIO                     # GPIO library for Raspberry Pi 
 import numpy as np                          # Numpy library for numerical operations  
 import time                                 # Time library for time operations  
 
-# GPIO Setup
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
 
@@ -26,43 +25,43 @@ motor_encoder_B = 8
 
 # Pendulum Parameters
 pi = np.pi              # Constant for pi
-mc = 0.232              # Mass of the cart
-m1 = 0.127              # Mass of the first pendulum
-m2 = 0.127              # Mass of the second pendulum
-L1 = 0.3                # Length of the first pendulum
-L2 = 0.3                # Length of the second pendulum
-LC1 = 0.3               # Length to center of mass of the first pendulum
-LC2 = 0.15              # Length to center of mass of the second pendulum
-I1 = m1 * LC1**2        # Moment of inertia of the first pendulum
-I2 = m2 * LC2**2        # Moment of inertia of the second pendulum
+m_c = 0.232              # Mass of the cart
+m_1 = 0.127              # Mass of the first pendulum
+m_2 = 0.127              # Mass of the second pendulum
+l_1 = 0.3                # Length of the first pendulum
+l_2 = 0.3                # Length of the second pendulum
+lc_1 = 0.3               # Length to center of mass of the first pendulum
+lc_2 = 0.15              # Length to center of mass of the second pendulum
+i_1 = m_1 * lc_1**2        # Moment of inertia of the first pendulum
+i_2 = m_2 * lc_2**2        # Moment of inertia of the second pendulum
 g = 9.81                # Gravitational acceleration 
 
-# Intermediate calculations for the system matrices
-h1 = mc + m1 + m2
-h2 = m1 * LC1 + m2 * L1
-h3 = m2 * LC2
-h4 = m2 * LC1**2 + m2 * L1**2 + I1
-h5 = m2 * LC2 * L1
-h6 = m2 * LC2**2 + I2
-h7 = m1 * LC1 * g + m2 * L1 * g
-h8 = m2 * LC2 * g
+# i_ntermedi_ate calculati_ons for the system matrices
+h_1 = m_c + m_1 + m_2
+h_2 = m_1 * lc_1 + m_2 * l_1
+h_3 = m_2 * lc_2
+h_4 = m_2 * lc_1**2 + m_2 * l_1**2 + i_1
+h_5 = m_2 * lc_2 * l_1
+h_6 = m_2 * lc_2**2 + i_2
+h_7 = m_1 * lc_1 * g + m_2 * l_1 * g
+h_8 = m_2 * lc_2 * g
 
-# System matrix representation
+# System matrix representati_on
 M = np.array([
     [1, 0, 0, 0, 0, 0],
     [0, 1, 0, 0, 0, 0],
     [0, 0, 1, 0, 0, 0],
-    [0, 0, 0, h1, h2, h3],
-    [0, 0, 0, h2, h4, h5],
-    [0, 0, 0, h3, h5, h6],
+    [0, 0, 0, h_1, h_2, h_3],
+    [0, 0, 0, h_2, h_4, h_5],
+    [0, 0, 0, h_3, h_5, h_6],
 ])
 N = np.array([
     [0, 0, 0, 1, 0, 0],
     [0, 0, 0, 0, 1, 0],
     [0, 0, 0, 0, 0, 1],
     [0, 0, 0, 0, 0, 0],
-    [0, -h7, 0, 0, 0, 0],
-    [0, 0, -h8, 0, 0, 0],
+    [0, -h_7, 0, 0, 0, 0],
+    [0, 0, -h_8, 0, 0, 0],
 ])
 F = np.array([[0], [0], [0], [1], [0], [0]])
 
@@ -137,7 +136,9 @@ GPIO.add_event_detect(switchPin_2, GPIO.FALLING, callback=end_switch_callback, b
 try:
     while True:
         sensorData, lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m = read_sensors_data(lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m)  # Read sensor data
+        print('Sensor Data:',sensorData)
         u = LQR_CONTROLLER.compute_control_output(K_d ,sensorData)  # Compute control output u
+        print('Control Output:', u)
         steps, stepPeriod, velocity, position = MOTOR.calculate_steps(u,velocity,position, t_s)  # Calculate motor steps and period
         if np.sign(u)*1 == 1:  # Set motor direction based on control output
             MOTOR.move_stepper(steps, stepPeriod, 1)
