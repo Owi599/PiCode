@@ -13,7 +13,7 @@ GPIO.setwarnings(False)
 
 # Pins
 switchPin_1 = 4
-switchPin_2 = 17
+switchPin_2 = 3
 pulsePin = 9
 dirPin = 10
 encoder_1_A = 21
@@ -70,7 +70,7 @@ A = np.linalg.solve(M, N)
 B = np.linalg.solve(M, F)
 C = np.array([[1, 0, 0, 0, 0, 0]])
 D = np.array([[0]])
-t_s = 0.02  # Sampling time
+t_s = 0.2  # Sampling time
 
 # LQR Parameters
 Q = np.diag([4000, 50, 50, 100, 10, 10])  # State cost matrix
@@ -88,6 +88,7 @@ cpr = 1250  # Counts per revolution for the rotary encoder
 ENCODER = ReadRotaryEncoder(encoder_1_A, encoder_1_B, max_steps=maxSteps, wrap=True)  # Rotary encoder for the pendulum
 ENCODER_2 = ReadRotaryEncoder(encoder_2_A, encoder_2_B, max_steps=maxSteps, wrap=True)  # Rotary encoder for the second pendulum
 ENCODER_M = ReadMotorEncoder(motor_encoder_A, motor_encoder_B, max_steps=0)  # Motor encoder
+ENCODER.steps = 625  # Set the steps for the rotary encoder
 #END_SWITCH = EndSwitch(switchPin_1)  # End switch 1
 #END_SWITCH_2 = EndSwitch(switchPin_2)  # End switch 2
 MOTOR = MotorControl(pulsePin, dirPin, stepsPerRev, pulleyRad, holdingTorque)  # Motor control object
@@ -97,24 +98,24 @@ LQR_CONTROLLER = LQR(A, B, C, D, Q, R)  # LQR controller object
 sys_C, sys_D = LQR_CONTROLLER.covert_continuous_to_discrete(A, B, C, D, t_s)  # Convert continuous to discrete system
 # calculate K_discrete
 K_d = LQR_CONTROLLER.compute_K_discrete(Q, R, sys_D)  # Compute the LQR gain for discrete system
-
+print('K_d:', K_d)  # Print the LQR gain
 
 # define function to read sensor data
 def read_sensors_data(lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m):
     sensorData = []
-    sensorData.append(str("{:.2f}".format(ENCODER_M.read_position(cpr_m))))  # Read motor encoder position
-    sensorData.append(str("{:.2f}".format(ENCODER.read_position(cpr))))  # Read first pendulum encoder position
-    sensorData.append(str("{:.2f}".format(ENCODER_2.read_position(cpr))))  # Read second pendulum encoder position
+    sensorData.append(ENCODER_M.read_position(cpr_m))  # Read motor encoder position
+    sensorData.append(ENCODER.read_position(cpr))  # Read first pendulum encoder position
+    sensorData.append(ENCODER_2.read_position(cpr))  # Read second pendulum encoder position
     v, lastTime_m, lastSteps_m = ENCODER_M.read_velocity(cpr_m, lastTime, lastSteps_m)  # Read motor encoder velocity
-    sensorData.append(str("{:.2f}".format(v)))  # Append motor velocity to sensor data
+    sensorData.append(v)  # Append motor velocity to sensor data
     omega_1, lastTime, lastSteps = ENCODER.read_velocity(cpr, lastTime, lastSteps)  # Read first pendulum encoder velocity
-    sensorData.append(str("{:.2f}".format(omega_1)))  # Append first pendulum velocity to sensor data
+    sensorData.append(omega_1)  # Append first pendulum velocity to sensor data
     omega_2, lastTime_2, lastSteps_2 = ENCODER_2.read_velocity(cpr, lastTime, lastSteps_2)  # Read second pendulum encoder velocity
-    sensorData.append(str("{:.2f}".format(omega_2)))  # Append second pendulum velocity to sensor data
+    sensorData.append(omega_2)  # Append second pendulum velocity to sensor data
     return sensorData, lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m  # Return the sensor data
 
 # define call back function for the end switch
-def end_switch_callback(channel):
+def end_switch_callback(channel,MotorControl):
     MotorControl.stop_motor()  # stop the motor
     
 # time Costants
@@ -128,8 +129,10 @@ velocity = 0  # Initial velocity
 position = 0  # Initial position
 
 # define event interrupt
-GPIO.add_event_detect(switchPin_1, GPIO.FALLING, callback=end_switch_callback, bouncetime=0)  # Event detection for end switch 1
-GPIO.add_event_detect(switchPin_2, GPIO.FALLING, callback=end_switch_callback, bouncetime=0)  # Event detection for end switch 2
+GPIO.setup(switchPin_1, GPIO.IN)  # Set up end switch 1
+GPIO.setup(switchPin_2, GPIO.IN)  # Set up end switch 2
+GPIO.add_event_detect(switchPin_1, GPIO.FALLING, callback=lambda x: end_switch_callback(switchPin_1,MOTOR), bouncetime=10)  # Event detection for end switch 1
+GPIO.add_event_detect(switchPin_2, GPIO.FALLING, callback=lambda x: end_switch_callback(switchPin_2,MOTOR), bouncetime=10)  # Event detection for end switch 2
 
 
 # Main loop
@@ -137,9 +140,9 @@ try:
     while True:
         sensorData, lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m = read_sensors_data(lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m)  # Read sensor data
         print('Sensor Data:',sensorData)
-        u = LQR_CONTROLLER.compute_control_output(K_d ,sensorData)  # Compute control output u
+        u = LQR_CONTROLLER.compute_control_output_discrete(K_d ,sensorData)  # Compute control output u
         print('Control Output:', u)
-        steps, stepPeriod, velocity, position = MOTOR.calculate_steps(u,velocity,position, t_s)  # Calculate motor steps and period
+        steps, stepPeriod, velocity, position = MOTOR.calculate_steps(u[0],velocity,position, t_s)  # Calculate motor steps and period
         if np.sign(u)*1 == 1:  # Set motor direction based on control output
             MOTOR.move_stepper(steps, stepPeriod, 1)
         else:

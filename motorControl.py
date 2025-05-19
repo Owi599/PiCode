@@ -15,6 +15,7 @@ class MotorControl():
         self.DIR = directionPin
         GPIO.setup(pulsePin,GPIO.OUT)
         GPIO.setup(directionPin,GPIO.OUT)
+        GPIO.output(pulsePin,GPIO.LOW)
         self.stepsPerRev = stepsPerRev
         self.pulleyRad = pulleyRad
         self.holdingTorque = holdingTorque
@@ -33,7 +34,7 @@ class MotorControl():
         
         #Check for maximum speed
         if abs(speed_rpm) > self.velocity_max:
-            print(speed_rpm)
+            #print(speed_rpm)
             speed_rpm = np.sign(speed_rpm)*self.velocity_max + (-np.sign(speed_rpm)*1)  
             velocity = speed_rpm * 0.01047198
             print('Warning:Speed cannot be greater than 2000 rpm')
@@ -42,7 +43,7 @@ class MotorControl():
         position = 0.5*acceleration*t_sample**2 + velocity_intit*t_sample + position_init
         
         steps_int = max(int(round(((40*self.cpr)/2*np.pi)*position)), 1)  # Ensures at least 1 step
-        print(steps_int)
+        #print(steps_int)
         stepFreq = (abs(velocity) * 3200) / (self.pulleyRad/2*np.pi)  # Frequency in Hz
         
         if stepFreq == 0:
@@ -75,6 +76,8 @@ class MotorControl():
             time.sleep(stepPeriod/2)
 
     def stop_motor(self):
+        print('Motor stopping')
         GPIO.output(self.pulsePin,GPIO.LOW)
         GPIO.output(self.DIR,GPIO.LOW)
+        print('Motor stopped')
         time.sleep(3)
