@@ -102,6 +102,7 @@ print('K_d:', K_d)  # Print the LQR gain
 
 # define function to read sensor data
 def read_sensors_data(lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m):
+    startTime = time.perf_counter()  # Start time for reading sensor data
     sensorData = []
     sensorData.append(ENCODER_M.read_position(cpr_m))  # Read motor encoder position
     sensorData.append(ENCODER.read_position(cpr))  # Read first pendulum encoder position
@@ -112,7 +113,9 @@ def read_sensors_data(lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,last
     sensorData.append(omega_1)  # Append first pendulum velocity to sensor data
     omega_2, lastTime_2, lastSteps_2 = ENCODER_2.read_velocity(cpr, lastTime, lastSteps_2)  # Read second pendulum encoder velocity
     sensorData.append(omega_2)  # Append second pendulum velocity to sensor data
-    return sensorData, lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m  # Return the sensor data
+    endTime = time.perf_counter()  # End time for reading sensor data
+    sensorTime = endTime - startTime  # Calculate sensor reading time
+    return sensorData, lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m,sensorTime  # Return the sensor data
 
 # define call back function for the end switch
 def end_switch_callback(channel,MotorControl):
@@ -134,22 +137,49 @@ GPIO.setup(switchPin_2, GPIO.IN)  # Set up end switch 2
 GPIO.add_event_detect(switchPin_1, GPIO.FALLING, callback=lambda x: end_switch_callback(switchPin_1,MOTOR), bouncetime=10)  # Event detection for end switch 1
 GPIO.add_event_detect(switchPin_2, GPIO.FALLING, callback=lambda x: end_switch_callback(switchPin_2,MOTOR), bouncetime=10)  # Event detection for end switch 2
 
-
+sensorTimeArray = []  # Array to store sensor data reading times
+controlOutputCalculationTimeArray = []  # Array to store control calculation times
+stepCalculationTimeArray = []  # Array to store step calculation times
+movementTimeArray = []  # Array to store movement times
 # Main loop
 try:
     while True:
-        sensorData, lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m = read_sensors_data(lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m)  # Read sensor data
+        sensorData, lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m,sensorTime = read_sensors_data(lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m)  # Read sensor data
         print('Sensor Data:',sensorData)
-        u = LQR_CONTROLLER.compute_control_output_discrete(K_d ,sensorData)  # Compute control output u
+        u, controlOutputCalculationTime = LQR_CONTROLLER.compute_control_output_discrete(K_d ,sensorData)  # Compute control output u
         print('Control Output:', u)
-        steps, stepPeriod, velocity, position = MOTOR.calculate_steps(u[0],velocity,position, t_s)  # Calculate motor steps and period
+        steps, stepPeriod, velocity, position,stepCalculationTime = MOTOR.calculate_steps(u[0],velocity,position, t_s)  # Calculate motor steps and period
         if np.sign(u)*1 == 1:  # Set motor direction based on control output
-            MOTOR.move_stepper(steps, stepPeriod, 1)
+            movementTime = MOTOR.move_stepper(steps, stepPeriod, 1)
         else:
-            MOTOR.move_stepper(steps, stepPeriod, -1)
+            movementTime = MOTOR.move_stepper(steps, stepPeriod, -1)
+        sensorTimeArray.append(sensorTime)
+        controlOutputCalculationTimeArray.append(controlOutputCalculationTime)
+        stepCalculationTimeArray.append(stepCalculationTime)
+        movementTimeArray.append(movementTime)
+
     
 except KeyboardInterrupt:
-    GPIO.cleanup()  
+    GPIO.cleanup()
+    np.array(sensorTimeArray).tofile('sensorTimeArray.csv', sep=',')
+    np.array(controlOutputCalculationTimeArray).tofile('controlOutputCalculationTimeArray.csv', sep=',')
+    np.array(stepCalculationTimeArray).tofile('stepCalculationTimeArray.csv', sep=',')
+    np.array(movementTimeArray).tofile('movementTimeArray.csv', sep=',')
+    print('Program terminated by user. Data saved to CSV files.')  
 
 except Exception as e:
     print('An error occurred:', str(e))
+    GPIO.cleanup()
+    np.array(sensorTimeArray).tofile('sensorTimeArray.csv', sep=',')
+    np.array(controlOutputCalculationTimeArray).tofile('controlOutputCalculationTimeArray.csv', sep=',')
+    np.array(stepCalculationTimeArray).tofile('stepCalculationTimeArray.csv', sep=',')
+    np.array(movementTimeArray).tofile('movementTimeArray.csv', sep=',')
+    print('Data saved to CSV files.')
+finally:
+    GPIO.cleanup()
+    np.array(sensorTimeArray).tofile('sensorTimeArray.csv', sep=',')   
+    np.array(controlOutputCalculationTimeArray).tofile('controlOutputCalculationTimeArray.csv', sep=',')
+    np.array(stepCalculationTimeArray).tofile('stepCalculationTimeArray.csv', sep=',')
+    np.array(movementTimeArray).tofile('movementTimeArray.csv', sep=',')
+    print('Program terminated. Data saved to CSV files.')
+    

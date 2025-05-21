@@ -86,23 +86,26 @@ t_sample = 0.02 # sampling time
 GPIO.add_event_detect(switchPin_1, GPIO.FALLING, callback=end_switch_callback, bouncetime=0)  # Event detection for end switch 1
 GPIO.add_event_detect(switchPin_2, GPIO.FALLING, callback=end_switch_callback, bouncetime=0)  # Event detection for end switch 2
 
+# define lists 
 data = ''
-
+sensorTimeArray = []
+stepCalculationTimeArray = []
 try:
 	while True:
-		sensorData, lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m = read_sensors_data(lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m)  # Read sensor data
+		sensorData, lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m,sensorTime = read_sensors_data(lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m)  # Read sensor data
 		data = strg.join(sensorData)
 		UDPSENSOR.send_data(data,client)
 		print('Sensor data sent:', sensorData)
 		u = float(UDPCONTROL.receive_data(server).strip())
 		print('Control output received:', u)
-		steps, stepPeriod, velocity, position = MOTOR.calculate_steps(u,velocity,position, t_sample)  # Calculate motor steps and period
+		steps, stepPeriod, velocity, position,stepCalculationTime = MOTOR.calculate_steps(u,velocity,position, t_sample)  # Calculate motor steps and period
     	
 		if np.sign(u)*1 == 1:  # Set motor direction based on control output
 			MOTOR.move_stepper(steps, stepPeriod, 1)
 		else:
 			MOTOR.move_stepper(steps, stepPeriod, -1)
-
+		sensorTimeArray.append(sensorTime)  # Append sensor time to the list
+		stepCalculationTimeArray.append(stepCalculationTime)
 except KeyboardInterrupt:
 	GPIO.cleanup()
 

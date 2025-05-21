@@ -25,7 +25,7 @@ class MotorControl():
         self.velocity_max = 2000
         
     def calculate_steps(self, force,velocity_intit,position_init,t_sample):
-        
+        startTime = time.perf_counter()
         #velocity and Speed in RPM
         acceleration = force/self.m_total
         velocity = acceleration*t_sample + velocity_intit
@@ -54,13 +54,14 @@ class MotorControl():
         # # Set maximum delay to prevent out-of-bound values
         maxDelay = t_sample   # maximum delay
         stepPeriod = min(stepPeriod, maxDelay)
-		
+        endTime = time.perf_counter()
+        stepCalculationTime = endTime - startTime
         
-        return steps_int, stepPeriod, velocity, position
+        return steps_int, stepPeriod, velocity, position,stepCalculationTime
         
         
     def move_stepper(self,steps, stepPeriod, direction):
-
+        startTime = time.perf_counter()
         if direction == 1:
             GPIO.output(self.DIR, GPIO.HIGH)
         elif direction == -1:
@@ -74,6 +75,9 @@ class MotorControl():
             time.sleep(stepPeriod/2)
             GPIO.output(self.pulsePin,GPIO.LOW)
             time.sleep(stepPeriod/2)
+        endTime = time.perf_counter()
+        movementTime = endTime - startTime
+        return movementTime
 
     def stop_motor(self):
         print('Motor stopping')

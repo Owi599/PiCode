@@ -1,6 +1,7 @@
 import numpy as np  # library for nummeric operations
 import control as ct # control library 
 from scipy.linalg import solve_continuous_are, solve_discrete_are # linearization library 
+import time # library for time operations
 
 # Class defining the LQR controller
 class LQR: 
@@ -60,11 +61,17 @@ class LQR:
     
     # Method to compute the control output for continuous-time system
     def compute_control_output_continuous(self, K, x):
-        
-        return np.clip(-K @ x, -8.5, +8.5)
+        startTime = time.perf_counter()
+        u = np.clip(-K @ x, -8.5, +8.5)
+        endTime = time.perf_counter()
+        controlOutputCalculationTime = endTime - startTime
+        return u, controlOutputCalculationTime
    
     # Method to compute the control output for discrete-time system
     def compute_control_output_discrete(self,K_d,x_k):
-            
-        return np.clip(-K_d @ x_k, -8.5, +8.5)
+        startTime = time.perf_counter()
+        u = np.clip(-K_d @ x_k, -8.5, +8.5)
+        endTime = time.perf_counter()
+        controlOutputCalculationTime = endTime - startTime
+        return u, controlOutputCalculationTime
 
