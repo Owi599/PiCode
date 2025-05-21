@@ -90,25 +90,47 @@ GPIO.add_event_detect(switchPin_2, GPIO.FALLING, callback=end_switch_callback, b
 data = ''
 sensorTimeArray = []
 stepCalculationTimeArray = []
+movementTimeArray = []
+sendTimeArray = []
 try:
 	while True:
 		sensorData, lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m,sensorTime = read_sensors_data(lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m)  # Read sensor data
 		data = strg.join(sensorData)
-		UDPSENSOR.send_data(data,client)
+		sendTime = UDPSENSOR.send_data(data,client)
 		print('Sensor data sent:', sensorData)
 		u = float(UDPCONTROL.receive_data(server).strip())
 		print('Control output received:', u)
 		steps, stepPeriod, velocity, position,stepCalculationTime = MOTOR.calculate_steps(u,velocity,position, t_sample)  # Calculate motor steps and period
     	
 		if np.sign(u)*1 == 1:  # Set motor direction based on control output
-			MOTOR.move_stepper(steps, stepPeriod, 1)
+			movementTime = MOTOR.move_stepper(steps, stepPeriod, 1)
 		else:
-			MOTOR.move_stepper(steps, stepPeriod, -1)
+			movementTime = MOTOR.move_stepper(steps, stepPeriod, -1)
 		sensorTimeArray.append(sensorTime)  # Append sensor time to the list
 		stepCalculationTimeArray.append(stepCalculationTime)
+		movementTimeArray.append(movementTime)
+		sendTimeArray.append(sendTime)
+		
 except KeyboardInterrupt:
 	GPIO.cleanup()
+	np.array(sensorTimeArray).tofile('sensorTimeArraySplit.csv', sep=',')
+	np.array(stepCalculationTimeArray).tofile('stepCalculationTimeArraySplit.csv', sep=',') 
+	np.array(movementTimeArray).tofile('movementTimeArraySplit.csv', sep=',')
+	np.array(sendTimeArray).tofile('sendTimeArray.csv', sep=',')	
+	print('Program terminated by user. Data saved to CSV files.')  
 
 except Exception as e:
 	print('An error occured:', str(e))
 	GPIO.cleanup()
+	np.array(sensorTimeArray).tofile('sensorTimeArraySplit.csv', sep=',')
+	np.array(stepCalculationTimeArray).tofile('stepCalculationTimeArraySplit.csv', sep=',') 
+	np.array(movementTimeArray).tofile('movementTimeArraySplit.csv', sep=',')
+	np.array(sendTimeArray).tofile('sendTimeArray.csv', sep=',')	
+	print('Program terminated by user. Data saved to CSV files.')  
+finally:
+	GPIO.cleanup()
+	np.array(sensorTimeArray).tofile('sensorTimeArraySplit.csv', sep=',')
+	np.array(stepCalculationTimeArray).tofile('stepCalculationTimeArraySplit.csv', sep=',') 
+	np.array(movementTimeArray).tofile('movementTimeArraySplit.csv', sep=',')
+	np.array(sendTimeArray).tofile('sendTimeArray.csv', sep=',')	
+	print('Program terminated by user. Data saved to CSV files.')

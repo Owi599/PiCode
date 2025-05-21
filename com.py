@@ -1,4 +1,5 @@
 import socket
+import time
 
 #This is a class for the communication interface from the RPi side (UDP)
 
@@ -21,13 +22,20 @@ class UDP:
 		return CLIENTSOCKET
 		
 	def send_data(self,data,client):
+			startTime = time.perf_counter()
 			client.sendto(str.encode(data),(self.ipAddress,self.portNumber))
+			endTime = time.perf_counter()
+			sendTime = endTime - startTime
+			return sendTime
 	
 	def receive_data(self,server):
+		startTime = time.perf_counter()
 		msgFromServer = server.recvfrom(1024)
 		data = msgFromServer[0]
 		receivedData = data.decode()
-		return receivedData
+		endTime = time.perf_counter()
+		receiveTime = endTime - startTime
+		return receivedData,receiveTime
 
 
 #This is a class for the communication interface from the RPi side (TCP)
