@@ -44,7 +44,7 @@ class MotorControl():
         
         steps_int = max(int(round(((40*self.cpr)/2*np.pi)*position)), 1)  # Ensures at least 1 step
         #print(steps_int)
-        stepFreq = (abs(velocity) * 3200) / (self.pulleyRad/2*np.pi)  # Frequency in Hz
+        stepFreq = (abs(velocity) * 1600) / (self.pulleyRad/2*np.pi)  # Frequency in Hz
         
         if stepFreq == 0:
             stepPeriod = 0  # Motor is not moving

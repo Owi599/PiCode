@@ -70,10 +70,10 @@ A = np.linalg.solve(M, N)
 B = np.linalg.solve(M, F)
 C = np.array([[1, 0, 0, 0, 0, 0]])
 D = np.array([[0]])
-t_s = 0.2  # Sampling time
+t_s = 0.01  # Sampling time
 
 # LQR Parameters
-Q = np.diag([4000, 50, 50, 100, 10, 10])  # State cost matrix
+Q = np.diag([1000, 50, 50, 1000, 10, 10])  # State cost matrix
 R = np.array([[100]])  # Control cost matrix
 
 # Other Constants
@@ -99,7 +99,7 @@ sys_C, sys_D = LQR_CONTROLLER.covert_continuous_to_discrete(A, B, C, D, t_s)  # 
 # calculate K_discrete
 K_d = LQR_CONTROLLER.compute_K_discrete(Q, R, sys_D)  # Compute the LQR gain for discrete system
 print('K_d:', K_d)  # Print the LQR gain
-
+print('Time Constant:',LQR_CONTROLLER.compute_eigenvalues_discrete(Q,R,sys_D,K_d))  # Print the time constant of the system
 # define function to read sensor data
 def read_sensors_data(lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m):
     startTime = time.perf_counter()  # Start time for reading sensor data

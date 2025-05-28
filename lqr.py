@@ -50,8 +50,8 @@ class LQR:
         return dominantEigenvalue, timeConstant
     
     # Method to compute the eigenvalues of the discrete closed-loop system
-    def compute_eigenvalues_discrete(self,Q,R,sys):
-        A_cl_d = sys.A - sys.B @ self.compute_K_discrete(Q,R,sys)
+    def compute_eigenvalues_discrete(self,Q,R,sys,K):
+        A_cl_d = sys.A - sys.B @ K
         eigenvalues_d = np.linalg.eigvals(A_cl_d)
         # Find the dominant eigenvalue (the one with the smallest real part magnitude)
         dominantEigenvalue_d = min(eigenvalues_d, key=lambda ev: abs(ev.real))
