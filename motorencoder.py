@@ -5,11 +5,11 @@ from gpiozero import RotaryEncoder
 class ReadMotorEncoder(RotaryEncoder):
 	def read_position(self,cpr,microstep):
 		# Calculate the angle and position
-		distancePerStep = (2 * np.pi * 0.0125) / (200 * microstep / cpr) # m
+		distancePerStep = (2 * np.pi * 0.0125) /   cpr # m
 		position = (distancePerStep * self.steps) # m
 		return position
 
-	def read_velocity(self,cpr,microstep,l_t,l_s):
+	def read_velocity(self,cpr,l_t,l_s):
 		currentTime = time.time()
 		currentSteps = self.steps
         
@@ -23,7 +23,7 @@ class ReadMotorEncoder(RotaryEncoder):
 
         
 		# Calculate velocity
-		distancePerStep = (2 * np.pi * 0.0125) / (200 * microstep / cpr)  # m 
+		distancePerStep = (2 * np.pi * 0.0125) /  cpr  # m 
 		velocity = (stepDiff /timeDiff) * distancePerStep  # m/s
         
 		# Update last_time and last_steps

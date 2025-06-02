@@ -7,7 +7,7 @@ from motorControl import MotorControl       # Class for controlling motor output
 import RPi.GPIO as GPIO                     # GPIO library for Raspberry Pi 
 import numpy as np                          # Numpy library for numerical operations  
 import time                                 # Time library for time operations  
-
+import timeout_decorator                    # Timeout decorator for function execution time limits
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
 
@@ -83,7 +83,7 @@ holdingTorque = 2  # Holding torque of the motor
 cpr_m = 500  # Counts per revolution for the motor encoder
 maxSteps = 625  # Maximum steps for the rotary encoder
 cpr = 1250  # Counts per revolution for the rotary encoder
-
+microstep = 4
 # Instantiating objects
 ENCODER = ReadRotaryEncoder(encoder_1_A, encoder_1_B, max_steps=maxSteps, wrap=True)  # Rotary encoder for the pendulum
 ENCODER_2 = ReadRotaryEncoder(encoder_2_A, encoder_2_B, max_steps=maxSteps, wrap=True)  # Rotary encoder for the second pendulum
@@ -91,7 +91,7 @@ ENCODER_M = ReadMotorEncoder(motor_encoder_A, motor_encoder_B, max_steps=0)  # M
 ENCODER.steps = 625  # Set the steps for the rotary encoder
 #END_SWITCH = EndSwitch(switchPin_1)  # End switch 1
 #END_SWITCH_2 = EndSwitch(switchPin_2)  # End switch 2
-MOTOR = MotorControl(pulsePin, dirPin, stepsPerRev, pulleyRad, holdingTorque)  # Motor control object
+MOTOR = MotorControl(pulsePin, dirPin, stepsPerRev, pulleyRad, holdingTorque, t_s)  # Motor control object
 LQR_CONTROLLER = LQR(A, B, C, D, Q, R)  # LQR controller object
 
 # Discrete-time system
@@ -100,14 +100,15 @@ sys_C, sys_D = LQR_CONTROLLER.covert_continuous_to_discrete(A, B, C, D, t_s)  # 
 K_d = LQR_CONTROLLER.compute_K_discrete(Q, R, sys_D)  # Compute the LQR gain for discrete system
 print('K_d:', K_d)  # Print the LQR gain
 print('Time Constant:',LQR_CONTROLLER.compute_eigenvalues_discrete(Q,R,sys_D,K_d))  # Print the time constant of the system
+
 # define function to read sensor data
 def read_sensors_data(lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m):
     startTime = time.perf_counter()  # Start time for reading sensor data
     sensorData = []
-    sensorData.append(ENCODER_M.read_position(cpr_m))  # Read motor encoder position
+    sensorData.append(ENCODER_M.read_position(cpr_m,microstep))  # Read motor encoder position
     sensorData.append(ENCODER.read_position(cpr))  # Read first pendulum encoder position
     sensorData.append(ENCODER_2.read_position(cpr))  # Read second pendulum encoder position
-    v, lastTime_m, lastSteps_m = ENCODER_M.read_velocity(cpr_m, lastTime, lastSteps_m)  # Read motor encoder velocity
+    v, lastTime_m, lastSteps_m = ENCODER_M.read_velocity(cpr_m, microstep, lastTime, lastSteps_m)  # Read motor encoder velocity
     sensorData.append(v)  # Append motor velocity to sensor data
     omega_1, lastTime, lastSteps = ENCODER.read_velocity(cpr, lastTime, lastSteps)  # Read first pendulum encoder velocity
     sensorData.append(omega_1)  # Append first pendulum velocity to sensor data
@@ -121,6 +122,33 @@ def read_sensors_data(lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,last
 def end_switch_callback(channel,MotorControl):
     MotorControl.stop_motor()  # stop the motor
     
+# define event interrupt
+GPIO.setup(switchPin_1, GPIO.IN)  # Set up end switch 1
+GPIO.setup(switchPin_2, GPIO.IN)  # Set up end switch 2
+GPIO.add_event_detect(switchPin_1, GPIO.FALLING, callback=lambda x: end_switch_callback(switchPin_1,MOTOR), bouncetime=10)  # Event detection for end switch 1
+GPIO.add_event_detect(switchPin_2, GPIO.FALLING, callback=lambda x: end_switch_callback(switchPin_2,MOTOR), bouncetime=10)  # Event detection for end switch 2
+
+def home_cart(MotorControl, ReadMotorEncoder):
+    while True:
+        # Move the motor until the end switch is triggered
+        MotorControl.move_stepper(100, 0.01, -1)  # Move the motor in reverse direction
+        time.sleep(0.01)  # Sleep for a short duration to avoid excessive CPU usage
+        if GPIO.input(switchPin_1) == 0 or GPIO.input(switchPin_2) == 0:
+            # If the end switch is triggered, stop the motor
+            MotorControl.stop_motor()
+            ReadMotorEncoder.steps = 0  # Reset the motor encoder steps
+            MotorControl.move_stepper(100,0.01,1)  # Reset the motor position
+            break
+    while GPIO.input(switchPin_1) == 1 or GPIO.input(switchPin_2) == 1:
+        MotorControl.move_stepper(100, 0.01, 1)  # Move the motor in direction until the end switch is triggered
+        time.sleep(0.01)  # Sleep for a short duration to avoid excessive CPU usage
+        if GPIO.input(switchPin_1) == 0 or GPIO.input(switchPin_2) == 0:
+            MotorControl.stop_motor()  # Stop the motor if the end switch is triggered
+            MotorControl.move_stepper(ReadMotorEncoder.steps/2, 0.01, -1)  # Move the motor in reverse direction to reset the position
+            ReadMotorEncoder.steps = 0  # Reset the motor encoder steps
+            break
+home_cart(MOTOR, ENCODER_M)  # Home the cart by moving the motor until the end switch is triggered
+
 # time Costants
 lastTime = time.time()  # Last time for the first pendulum
 lastTime_2 = time.time()  # Last time for the second pendulum
@@ -131,24 +159,19 @@ lastSteps_m = ENCODER_M.steps  # Last steps for the motor
 velocity = 0  # Initial velocity
 position = 0  # Initial position
 
-# define event interrupt
-GPIO.setup(switchPin_1, GPIO.IN)  # Set up end switch 1
-GPIO.setup(switchPin_2, GPIO.IN)  # Set up end switch 2
-GPIO.add_event_detect(switchPin_1, GPIO.FALLING, callback=lambda x: end_switch_callback(switchPin_1,MOTOR), bouncetime=10)  # Event detection for end switch 1
-GPIO.add_event_detect(switchPin_2, GPIO.FALLING, callback=lambda x: end_switch_callback(switchPin_2,MOTOR), bouncetime=10)  # Event detection for end switch 2
 
 sensorTimeArray = []  # Array to store sensor data reading times
 controlOutputCalculationTimeArray = []  # Array to store control calculation times
 stepCalculationTimeArray = []  # Array to store step calculation times
 movementTimeArray = []  # Array to store movement times
 # Main loop
-try:
-    while True:
+while True:
+    try:
         sensorData, lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m,sensorTime = read_sensors_data(lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m)  # Read sensor data
         print('Sensor Data:',sensorData)
         u, controlOutputCalculationTime = LQR_CONTROLLER.compute_control_output_discrete(K_d ,sensorData)  # Compute control output u
         print('Control Output:', u)
-        steps, stepPeriod, velocity, position,stepCalculationTime = MOTOR.calculate_steps(u[0],velocity,position, t_s)  # Calculate motor steps and period
+        steps, stepPeriod, velocity, position,stepCalculationTime = MOTOR.calculate_steps(u[0],velocity,position)  # Calculate motor steps and period
         if np.sign(u)*1 == 1:  # Set motor direction based on control output
             movementTime = MOTOR.move_stepper(steps, stepPeriod, 1)
         else:
@@ -158,28 +181,34 @@ try:
         stepCalculationTimeArray.append(stepCalculationTime)
         movementTimeArray.append(movementTime)
 
-    
-except KeyboardInterrupt:
-    GPIO.cleanup()
-    np.array(sensorTimeArray).tofile('sensorTimeArray.csv', sep=',')
-    np.array(controlOutputCalculationTimeArray).tofile('controlOutputCalculationTimeArray.csv', sep=',')
-    np.array(stepCalculationTimeArray).tofile('stepCalculationTimeArray.csv', sep=',')
-    np.array(movementTimeArray).tofile('movementTimeArray.csv', sep=',')
-    print('Program terminated by user. Data saved to CSV files.')  
+    except TimeoutError:
+        print("Function timed out. loop starting over.")
+        continue 
 
-except Exception as e:
-    print('An error occurred:', str(e))
-    GPIO.cleanup()
-    np.array(sensorTimeArray).tofile('sensorTimeArray.csv', sep=',')
-    np.array(controlOutputCalculationTimeArray).tofile('controlOutputCalculationTimeArray.csv', sep=',')
-    np.array(stepCalculationTimeArray).tofile('stepCalculationTimeArray.csv', sep=',')
-    np.array(movementTimeArray).tofile('movementTimeArray.csv', sep=',')
-    print('Data saved to CSV files.')
-finally:
-    GPIO.cleanup()
-    np.array(sensorTimeArray).tofile('sensorTimeArray.csv', sep=',')   
-    np.array(controlOutputCalculationTimeArray).tofile('controlOutputCalculationTimeArray.csv', sep=',')
-    np.array(stepCalculationTimeArray).tofile('stepCalculationTimeArray.csv', sep=',')
-    np.array(movementTimeArray).tofile('movementTimeArray.csv', sep=',')
-    print('Program terminated. Data saved to CSV files.')
-    
+    except KeyboardInterrupt:
+        GPIO.cleanup()
+        np.array(sensorTimeArray).tofile('sensorTimeArray.csv', sep=',')
+        np.array(controlOutputCalculationTimeArray).tofile('controlOutputCalculationTimeArray.csv', sep=',')
+        np.array(stepCalculationTimeArray).tofile('stepCalculationTimeArray.csv', sep=',')
+        np.array(movementTimeArray).tofile('movementTimeArray.csv', sep=',')
+        print('Program terminated by user. Data saved to CSV files.')  
+        break
+
+    except Exception as e:
+        print('An error occurred:', str(e))
+        GPIO.cleanup()
+        np.array(sensorTimeArray).tofile('sensorTimeArray.csv', sep=',')
+        np.array(controlOutputCalculationTimeArray).tofile('controlOutputCalculationTimeArray.csv', sep=',')
+        np.array(stepCalculationTimeArray).tofile('stepCalculationTimeArray.csv', sep=',')
+        np.array(movementTimeArray).tofile('movementTimeArray.csv', sep=',')
+        print('Data saved to CSV files.')
+        print('Program terminated due to an error.')
+        break
+    finally:
+        GPIO.cleanup()
+        np.array(sensorTimeArray).tofile('sensorTimeArray.csv', sep=',')
+        np.array(controlOutputCalculationTimeArray).tofile('controlOutputCalculationTimeArray.csv', sep=',')
+        np.array(stepCalculationTimeArray).tofile('stepCalculationTimeArray.csv', sep=',')
+        np.array(movementTimeArray).tofile('movementTimeArray.csv', sep=',')
+        print('Program terminated. Data saved to CSV files.')
+        break

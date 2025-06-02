@@ -8,14 +8,16 @@ def randomFunction(n):
     time.sleep(n)  # Sleep for 5 seconds
     return "Function completed successfully"
 
-try:
-    while True:
-        n = random.uniform(0.01, 5)
+
+while True:
+    n = random.uniform(0.01, 5)
+    try:
         result = randomFunction(n)
         print(result)
-except timeout_decorator.TimeoutError:
-    print("Function timed out after timout time reached")
-   
+    except timeout_decorator.TimeoutError:
+        print("Function timed out after timeout time reached")
+        continue
+
 # timeoutdeocr.py
 # This code demonstrates how to use the timeout_decorator to limit the execution time of a function.
 # The randomFunction is designed to sleep for 5 seconds, but the timeout decorator will raise a TimeoutError after 3 seconds.
