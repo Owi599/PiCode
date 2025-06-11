@@ -84,19 +84,94 @@ print(Eigs)  # Print the eigenvalues of the closed-loop system matrix
 dominantEigenvalue = min(Eigs, key=lambda ev: abs(ev.real))
 timeConstant = 1 / abs(dominantEigenvalue.real)
 print(f"Dominant Eigenvalue: {dominantEigenvalue}, Time Constant: {timeConstant:.2f} seconds")  # Print the dominant eigenvalue and time constant
-sys_cl  = ctrl.ss(A_cl,B*0,np.eye(A.shape[0]),np.zeros((A.shape[0],1)))  # Create a state-space system for the closed-loop system
+# sys_cl  = ctrl.ss(A_cl,B*0,np.eye(A.shape[0]),np.zeros((A.shape[0],1)))  # Create a state-space system for the closed-loop system
 
-x0 = np.array([0, pi, pi, 0, 0, 0])  # Initial state of the system
-t = np.linspace(0, 10, 1000)  # Time vector for simulation
-_,y = ctrl.forced_response(sys_cl, T=t, U=np.zeros_like(t), X0=x0)  # Simulate the system response
-import matplotlib.pyplot as plt  # Importing the plotting library
-plt.figure(figsize=(10, 6))  # Create a figure for plotting 
-plt.plot(t, y[0], label='Cart Position (m)')  # Plot the cart position
-plt.plot(t, y[1], label='Pendulum 1 Angle (rad)')  # Plot the first pendulum angle
-plt.plot(t, y[2], label='Pendulum 2 Angle (rad)')  # Plot the second pendulum angle
-plt.xlabel('Time (s)')  # Label for the x-axis
-plt.ylabel('States')  # Label for the y-axis
-plt.title('System Response with State Feedback Control')  # Title of the plot
-plt.legend()  # Show the legend
-plt.grid()  # Add a grid to the plot
-plt.show()  # Display the plot
+x0 = np.array([-0.48, pi, pi, 0, 0, 0])  # Initial state of the system
+# t = np.linspace(0, 10, 1000)  # Time vector for simulation
+# _,y = ctrl.forced_response(sys_cl, T=t, U=np.zeros_like(t), X0=x0)  # Simulate the system response
+# import matplotlib.pyplot as plt  # Importing the plotting library
+# plt.figure(figsize=(10, 6))  # Create a figure for plotting 
+# plt.plot(t, y[0], label='Cart Position (m)')  # Plot the cart position
+# plt.plot(t, y[1], label='Pendulum 1 Angle (rad)')  # Plot the first pendulum angle
+# plt.plot(t, y[2], label='Pendulum 2 Angle (rad)')  # Plot the second pendulum angle
+# plt.xlabel('Time (s)')  # Label for the x-axis
+# plt.ylabel('States')  # Label for the y-axis
+# plt.title('System Response with State Feedback Control')  # Title of the plot
+# plt.legend()  # Show the legend
+# plt.grid()  # Add a grid to the plot
+# plt.show()  # Display the plot
+dt = t_s
+steps = int(10 / dt)
+x = x0.copy().flatten()
+x_history = [x.copy()]
+t_sim = [0]
+u_history = []
+
+x_min = -0.48
+x_max =  0.48
+
+# Limit control logic
+limit_triggered = False
+limit_direction = 0  # -1 for left, +1 for right
+
+for i in range(steps):
+    # Compute control input
+    u = float(np.clip(-K @ x, -10.0, 10.0))
+
+    if limit_triggered:
+        # If u tries to push further in the same direction → freeze
+        if np.sign(u) == limit_direction:
+            u = 0.0  # disable control
+        else:
+            limit_triggered = False  # u reversed direction → resume control
+
+    # Check for hitting limits
+    if not limit_triggered:
+        if x[0] < x_min:
+            x[0] = x_min
+            limit_triggered = True
+            limit_direction = np.sign(u)  # direction trying to go past left
+            u = 0.0
+        elif x[0] > x_max:
+            x[0] = x_max
+            limit_triggered = True
+            limit_direction = np.sign(u)  # direction trying to go past right
+            u = 0.0
+
+    # System update
+    dx = A @ x + (B * u).flatten()
+    x = x + dx * dt
+
+    # Log
+    x_history.append(x.copy())
+    u_history.append(u)
+    t_sim.append((i + 1) * dt)
+
+x_history = np.array(x_history)
+t_sim = np.array(t_sim)
+u_history = np.array(u_history)
+
+
+import matplotlib.pyplot as plt
+
+plt.figure(figsize=(10, 6))
+plt.plot(t_sim, x_history[:, 0], label='Cart Position (m)')
+plt.plot(t_sim, x_history[:, 1], label='Pendulum 1 Angle (rad)')
+plt.plot(t_sim, x_history[:, 2], label='Pendulum 2 Angle (rad)')
+plt.axhline(y=x_min, color='gray', linestyle='--', label='Cart Limit')
+plt.axhline(y=x_max, color='gray', linestyle='--')
+plt.xlabel('Time (s)')
+plt.ylabel('States')
+plt.title('System Response with Direction-Aware Limit Clamping')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+# Optional: Control input plot
+plt.figure()
+plt.plot(t_sim[:-1], u_history)
+plt.title("Control Input u(t)")
+plt.xlabel("Time (s)")
+plt.ylabel("Force (N)")
+plt.grid(True)
+plt.show()
