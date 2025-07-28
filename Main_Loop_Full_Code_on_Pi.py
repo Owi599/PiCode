@@ -120,7 +120,7 @@ def read_sensors_data(lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,last
     sensorData.append(ENCODER_M.read_position(cpr_m,microstep))  # Read motor encoder position
     sensorData.append(ENCODER.read_position(cpr))  # Read first pendulum encoder position
     sensorData.append(ENCODER_2.read_position(cpr))  # Read second pendulum encoder position
-    v, lastTime_m, lastSteps_m = ENCODER_M.read_velocity(cpr_m, microstep, lastTime, lastSteps_m)  # Read motor encoder velocity
+    v, lastTime_m, lastSteps_m = ENCODER_M.read_velocity(cpr_m, lastTime, lastSteps_m)  # Read motor encoder velocity
     sensorData.append(v)  # Append motor velocity to sensor data
     omega_1, lastTime, lastSteps = ENCODER.read_velocity(cpr, lastTime, lastSteps)  # Read first pendulum encoder velocity
     sensorData.append(omega_1)  # Append first pendulum velocity to sensor data
@@ -180,16 +180,25 @@ while True:
     try:
         sensorData, lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m,sensorTime = read_sensors_data(lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m)  # Read sensor data
         print('Sensor Data:',sensorData)
-        u, controlOutputCalculationTime = PP_CONTROLLER.compute_contorller_output(K, sensorData)  # Compute control output u
-        #LQR_CONTROLLER.compute_control_output_discrete(K_d ,sensorData)  # Compute control output u
-        print('Control Output:', u)
-        
-        steps, stepPeriod,stepCalculationTime = MOTOR.calculate_steps(u[0])  # Calculate motor steps and period
-        
-        movementTime = MOTOR.move_stepper(steps, stepPeriod, np.sign(u)*1)  # Move the motor in the direction of control output
-        
+        # u, controlOutputCalculationTime = PP_CONTROLLER.compute_contorller_output(K, sensorData)  # Compute control output u
+        u = -K@sensorData  # Compute control output u using pole placement
+        print(type(u))
+        #  #LQR_CONTROLLER.compute_control_output_discrete(K_d ,sensorData)  
+        #  Compute control output u
+        print('Control Output:', u[0])
+
+        steps, stepPeriod,stepCalculationTime,direction = MOTOR.calculate_steps(u[0])  # Calculate motor steps and period
+        print('Steps:', steps, 'Step Period:', stepPeriod, 'Step Calculation Time:', stepCalculationTime,type(steps),type(stepPeriod),type(stepCalculationTime))  # Print calculated steps and period
+        print(type(MOTOR.move_stepper))
+        if direction == 1:
+            MOTOR.move_stepper(steps, stepPeriod, 1)  # Move the motor in the direction of control output
+        elif direction == -1:
+            MOTOR.move_stepper(steps, stepPeriod, -1)  # Move the motor in the opposite direction of control output
+        else:
+            movementTime = 0  # If control output is zero, no movement is made
+        print('Movement Time:', movementTime)  # Print the time taken for the motor movement
         sensorTimeArray.append(sensorTime)
-        controlOutputCalculationTimeArray.append(controlOutputCalculationTime)
+        # controlOutputCalculationTimeArray.append(controlOutputCalculationTime)
         stepCalculationTimeArray.append(stepCalculationTime)
         movementTimeArray.append(movementTime)
 
@@ -216,11 +225,11 @@ while True:
         print('Data saved to CSV files.')
         print('Program terminated due to an error.')
         break
-    finally:
-        GPIO.cleanup()
-        np.array(sensorTimeArray).tofile('sensorTimeArray.csv', sep=',')
-        np.array(controlOutputCalculationTimeArray).tofile('controlOutputCalculationTimeArray.csv', sep=',')
-        np.array(stepCalculationTimeArray).tofile('stepCalculationTimeArray.csv', sep=',')
-        np.array(movementTimeArray).tofile('movementTimeArray.csv', sep=',')
-        print('Program terminated. Data saved to CSV files.')
-        break
+    # finally:
+    #     GPIO.cleanup()
+    #     np.array(sensorTimeArray).tofile('sensorTimeArray.csv', sep=',')
+    #     np.array(controlOutputCalculationTimeArray).tofile('controlOutputCalculationTimeArray.csv', sep=',')
+    #     np.array(stepCalculationTimeArray).tofile('stepCalculationTimeArray.csv', sep=',')
+    #     np.array(movementTimeArray).tofile('movementTimeArray.csv', sep=',')
+    #     print('Program terminated. Data saved to CSV files.')
+    #     break
