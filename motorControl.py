@@ -21,32 +21,34 @@ class MotorControl():
         self.pulleyRad = pulleyRad
         self.holdingTorque = holdingTorque
         self.t_sample = t_sample 
-        self.microresolution = 16
-        self.m_total = 0.232 + 0.127 + 0.127
+        self.microresolution = 4
+        self.m_total = 0.6 + 0.104 + 0.102
         self.cpr = 500
-        self.velocity_max = 2000
+        self.velocity_max = 0.1047*self.pulleyRad*2000  # Maximum speed in m/s (2000 RPM)
 
-    def calculate_steps(self, force,velocity_intit,position_init):
+        # Integration terms for vel and position
+        self.velocity_integral = 0
+        self.position_integral = 0
+        self.dt = self.t_sample  # Time step for integration
+        
+        
+    def calculate_steps(self, force):
         startTime = time.perf_counter()
         #velocity and Speed in RPM
         acceleration = force/self.m_total
-        velocity = acceleration*self.t_sample + velocity_intit
-        radialvelocity = velocity *self.pulleyRad
-        speed_rpm = radialvelocity * 9.549297
+        self.velocity_integral += acceleration*self.dt 
+        self.position_integral += self.velocity_integral*self.dt
+        
         
         #Check for maximum speed
-        if abs(speed_rpm) > self.velocity_max:
-            #print(speed_rpm)
-            speed_rpm = np.sign(speed_rpm)*self.velocity_max + (-np.sign(speed_rpm)*1)  
-            velocity = speed_rpm * 0.01047198
+        if abs(self.velocity_integral) > self.velocity_max:
+            self.velocity_integral = np.sign(self.velocity_integral) * self.velocity_max
             print('Warning:Speed cannot be greater than 2000 rpm')
         
-        #caclcuate the positison
-        position = 0.5*acceleration*self.t_sample**2 + velocity_intit*self.t_sample + position_init
-
-        steps_int = max(int(round(((40*self.cpr)/2*np.pi)*position)), 1)  # Ensures at least 1 step
+        
+        steps_int = max(int((self.position_integral*self.stepsPerRev*self.microresolution)/(2*np.pi*self.pulleyRad)), 1)  # Ensures at least 1 step
         #print(steps_int)
-        stepFreq = (abs(velocity) * 1600) / (self.pulleyRad/2*np.pi)  # Frequency in Hz
+        stepFreq = (abs(self.velocity_integral) * self.microresolution) / (self.pulleyRad/2*np.pi)  # Frequency in Hz
         
         if stepFreq == 0:
             stepPeriod = 0  # Motor is not moving
@@ -59,7 +61,7 @@ class MotorControl():
         endTime = time.perf_counter()
         stepCalculationTime = endTime - startTime
         
-        return steps_int, stepPeriod, velocity, position,stepCalculationTime
+        return steps_int, stepPeriod, stepCalculationTime
     
     def get_t_sample(self):
         return self.t_sample

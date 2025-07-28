@@ -3,6 +3,7 @@ from rotaryencoder import ReadRotaryEncoder # Class for reading and parsing rota
 from motorencoder import ReadMotorEncoder   # Class for reading and parsing motor encoders' data
 from endswitch import EndSwitch             # Class for reading and parsing photoelectronic sensors' data
 from lqr import LQR                         # Class for Linear Quadratic Regulator (LQR) control
+from poleplacement import PolePlacement     # Class for Pole Placement control
 from motorControl import MotorControl       # Class for controlling motor output
 import RPi.GPIO as GPIO                     # GPIO library for Raspberry Pi 
 import numpy as np                          # Numpy library for numerical operations  
@@ -24,19 +25,22 @@ motor_encoder_A = 7
 motor_encoder_B = 8
 
 # Pendulum Parameters
-pi = np.pi              # Constant for pi
-m_c = 0.232              # Mass of the cart
-m_1 = 0.127              # Mass of the first pendulum
-m_2 = 0.127              # Mass of the second pendulum
-l_1 = 0.3                # Length of the first pendulum
-l_2 = 0.3                # Length of the second pendulum
-lc_1 = 0.3               # Length to center of mass of the first pendulum
-lc_2 = 0.15              # Length to center of mass of the second pendulum
-i_1 = m_1 * lc_1**2        # Moment of inertia of the first pendulum
-i_2 = m_2 * lc_2**2        # Moment of inertia of the second pendulum
-g = 9.81                # Gravitational acceleration 
+pi = np.pi
+m_c = 0.6
+m_1 = 0.102
+m_2 = 0.104
+l_1 = 0.28
+l_2 = 0.305
+lc_1 = 0.17
+lc_2 = 0.065
+i_1 = m_1 * lc_1**2
+i_2 = m_2 * lc_2**2
+g = 9.81
+b_c = 0.05
+b_1 = 0.01
+b_2 = 0.01
 
-# i_ntermedi_ate calculati_ons for the system matrices
+# Intermediate calculations for the system matrices
 h_1 = m_c + m_1 + m_2
 h_2 = m_1 * lc_1 + m_2 * l_1
 h_3 = m_2 * lc_2
@@ -46,7 +50,7 @@ h_6 = m_2 * lc_2**2 + i_2
 h_7 = m_1 * lc_1 * g + m_2 * l_1 * g
 h_8 = m_2 * lc_2 * g
 
-# System matrix representati_on
+# System matrix representation
 M = np.array([
     [1, 0, 0, 0, 0, 0],
     [0, 1, 0, 0, 0, 0],
@@ -59,9 +63,9 @@ N = np.array([
     [0, 0, 0, 1, 0, 0],
     [0, 0, 0, 0, 1, 0],
     [0, 0, 0, 0, 0, 1],
-    [0, 0, 0, 0, 0, 0],
-    [0, -h_7, 0, 0, 0, 0],
-    [0, 0, -h_8, 0, 0, 0],
+    [0, 0, 0, -b_c, 0, 0],
+    [0, -h_7, 0, 0, -b_1, 0],
+    [0, 0, -h_8, 0, 0, -b_2],
 ])
 F = np.array([[0], [0], [0], [1], [0], [0]])
 
@@ -70,11 +74,11 @@ A = np.linalg.solve(M, N)
 B = np.linalg.solve(M, F)
 C = np.array([[1, 0, 0, 0, 0, 0]])
 D = np.array([[0]])
-t_s = 0.01  # Sampling time
+t_s = 0.02  # Sampling time
 
 # LQR Parameters
-Q = np.diag([1000, 50, 50, 1000, 10, 10])  # State cost matrix
-R = np.array([[100]])  # Control cost matrix
+# Q = np.diag([1000, 50, 50, 1000, 10, 10])  # State cost matrix
+# R = np.array([[100]])  # Control cost matrix
 
 # Other Constants
 stepsPerRev = 200  # Steps per revolution for the motor
@@ -92,14 +96,22 @@ ENCODER.steps = 625  # Set the steps for the rotary encoder
 #END_SWITCH = EndSwitch(switchPin_1)  # End switch 1
 #END_SWITCH_2 = EndSwitch(switchPin_2)  # End switch 2
 MOTOR = MotorControl(pulsePin, dirPin, stepsPerRev, pulleyRad, holdingTorque, t_s)  # Motor control object
-LQR_CONTROLLER = LQR(A, B, C, D, Q, R)  # LQR controller object
-
+# LQR_CONTROLLER = LQR(A, B, C, D, Q, R)  # LQR controller object
+PP_CONTROLLER = PolePlacement(A, B, C, D)  # Pole placement controller object
 # Discrete-time system
-sys_C, sys_D = LQR_CONTROLLER.covert_continuous_to_discrete(A, B, C, D, t_s)  # Convert continuous to discrete system
-# calculate K_discrete
-K_d = LQR_CONTROLLER.compute_K_discrete(Q, R, sys_D)  # Compute the LQR gain for discrete system
-print('K_d:', K_d)  # Print the LQR gain
-print('Time Constant:',LQR_CONTROLLER.compute_eigenvalues_discrete(Q,R,sys_D,K_d))  # Print the time constant of the system
+# sys_C, sys_D = LQR_CONTROLLER.covert_continuous_to_discrete(A, B, C, D, t_s)  # Convert continuous to discrete system
+# # calculate K_discrete
+# K_d = LQR_CONTROLLER.compute_K_discrete(Q, R, sys_D)  # Compute the LQR gain for discrete system
+# print('K_d:', K_d)  # Print the LQR gain
+# print('Time Constant:',LQR_CONTROLLER.compute_eigenvalues_discrete(Q,R,sys_D,K_d))  # Print the time constant of the system
+desired_poles = [-6.66,-6,-5,-5.66,-7.66,-8]
+K = PP_CONTROLLER.compute_poles(desired_poles)  # Compute the state feedback gain matrix K
+
+eigenvalues, dominantEigenvalue, timeConstant = PP_CONTROLLER.compute_eigenvalues_and_time_constant(K)  # Compute eigenvalues and time constant
+print('Eigenvalues:', eigenvalues)  # Print the eigenvalues of the closed-loop system
+print('Dominant Eigenvalue:', dominantEigenvalue)  # Print the dominant eigenvalue
+print('Time Constant:', timeConstant)  # Print the time constant of the closed-loop system
+
 
 # define function to read sensor data
 def read_sensors_data(lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m):
@@ -128,26 +140,26 @@ GPIO.setup(switchPin_2, GPIO.IN)  # Set up end switch 2
 GPIO.add_event_detect(switchPin_1, GPIO.FALLING, callback=lambda x: end_switch_callback(switchPin_1,MOTOR), bouncetime=10)  # Event detection for end switch 1
 GPIO.add_event_detect(switchPin_2, GPIO.FALLING, callback=lambda x: end_switch_callback(switchPin_2,MOTOR), bouncetime=10)  # Event detection for end switch 2
 
-def home_cart(MotorControl, ReadMotorEncoder):
-    while True:
-        # Move the motor until the end switch is triggered
-        MotorControl.move_stepper(100, 0.01, -1)  # Move the motor in reverse direction
-        time.sleep(0.01)  # Sleep for a short duration to avoid excessive CPU usage
-        if GPIO.input(switchPin_1) == 0 or GPIO.input(switchPin_2) == 0:
-            # If the end switch is triggered, stop the motor
-            MotorControl.stop_motor()
-            ReadMotorEncoder.steps = 0  # Reset the motor encoder steps
-            MotorControl.move_stepper(100,0.01,1)  # Reset the motor position
-            break
-    while GPIO.input(switchPin_1) == 1 or GPIO.input(switchPin_2) == 1:
-        MotorControl.move_stepper(100, 0.01, 1)  # Move the motor in direction until the end switch is triggered
-        time.sleep(0.01)  # Sleep for a short duration to avoid excessive CPU usage
-        if GPIO.input(switchPin_1) == 0 or GPIO.input(switchPin_2) == 0:
-            MotorControl.stop_motor()  # Stop the motor if the end switch is triggered
-            MotorControl.move_stepper(ReadMotorEncoder.steps/2, 0.01, -1)  # Move the motor in reverse direction to reset the position
-            ReadMotorEncoder.steps = 0  # Reset the motor encoder steps
-            break
-home_cart(MOTOR, ENCODER_M)  # Home the cart by moving the motor until the end switch is triggered
+# def home_cart(MotorControl, ReadMotorEncoder):
+#     while True:
+#         # Move the motor until the end switch is triggered
+#         MotorControl.move_stepper(100, 0.01, -1)  # Move the motor in reverse direction
+#         time.sleep(0.01)  # Sleep for a short duration to avoid excessive CPU usage
+#         if GPIO.input(switchPin_1) == 0 or GPIO.input(switchPin_2) == 0:
+#             # If the end switch is triggered, stop the motor
+#             MotorControl.stop_motor()
+#             ReadMotorEncoder.steps = 0  # Reset the motor encoder steps
+#             MotorControl.move_stepper(100,0.01,1)  # Reset the motor position
+#             break
+#     while GPIO.input(switchPin_1) == 1 or GPIO.input(switchPin_2) == 1:
+#         MotorControl.move_stepper(100, 0.01, 1)  # Move the motor in direction until the end switch is triggered
+#         time.sleep(0.01)  # Sleep for a short duration to avoid excessive CPU usage
+#         if GPIO.input(switchPin_1) == 0 or GPIO.input(switchPin_2) == 0:
+#             MotorControl.stop_motor()  # Stop the motor if the end switch is triggered
+#             MotorControl.move_stepper(ReadMotorEncoder.steps/2, 0.01, -1)  # Move the motor in reverse direction to reset the position
+#             ReadMotorEncoder.steps = 0  # Reset the motor encoder steps
+#             break
+# home_cart(MOTOR, ENCODER_M)  # Home the cart by moving the motor until the end switch is triggered
 
 # time Costants
 lastTime = time.time()  # Last time for the first pendulum
@@ -156,8 +168,7 @@ lastTime_m = time.time()  # Last time for the motor
 lastSteps = ENCODER.steps  # Last steps for the first pendulum
 lastSteps_2 = ENCODER_2.steps  # Last steps for the second pendulum
 lastSteps_m = ENCODER_M.steps  # Last steps for the motor
-velocity = 0  # Initial velocity
-position = 0  # Initial position
+
 
 
 sensorTimeArray = []  # Array to store sensor data reading times
@@ -169,13 +180,14 @@ while True:
     try:
         sensorData, lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m,sensorTime = read_sensors_data(lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m)  # Read sensor data
         print('Sensor Data:',sensorData)
-        u, controlOutputCalculationTime = LQR_CONTROLLER.compute_control_output_discrete(K_d ,sensorData)  # Compute control output u
+        u, controlOutputCalculationTime = PP_CONTROLLER.compute_contorller_output(K, sensorData)  # Compute control output u
+        #LQR_CONTROLLER.compute_control_output_discrete(K_d ,sensorData)  # Compute control output u
         print('Control Output:', u)
-        steps, stepPeriod, velocity, position,stepCalculationTime = MOTOR.calculate_steps(u[0],velocity,position)  # Calculate motor steps and period
-        if np.sign(u)*1 == 1:  # Set motor direction based on control output
-            movementTime = MOTOR.move_stepper(steps, stepPeriod, 1)
-        else:
-            movementTime = MOTOR.move_stepper(steps, stepPeriod, -1)
+        
+        steps, stepPeriod,stepCalculationTime = MOTOR.calculate_steps(u[0])  # Calculate motor steps and period
+        
+        movementTime = MOTOR.move_stepper(steps, stepPeriod, np.sign(u)*1)  # Move the motor in the direction of control output
+        
         sensorTimeArray.append(sensorTime)
         controlOutputCalculationTimeArray.append(controlOutputCalculationTime)
         stepCalculationTimeArray.append(stepCalculationTime)
