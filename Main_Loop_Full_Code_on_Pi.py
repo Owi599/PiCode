@@ -120,7 +120,7 @@ def read_sensors_data(lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,last
     sensorData.append(ENCODER_M.read_position(cpr_m,microstep))  # Read motor encoder position
     sensorData.append(ENCODER.read_position(cpr))  # Read first pendulum encoder position
     sensorData.append(ENCODER_2.read_position(cpr))  # Read second pendulum encoder position
-    v, lastTime_m, lastSteps_m = ENCODER_M.read_velocity(cpr_m, microstep, lastTime, lastSteps_m)  # Read motor encoder velocity
+    v, lastTime_m, lastSteps_m = ENCODER_M.read_velocity(cpr_m, lastTime, lastSteps_m)  # Read motor encoder velocity
     sensorData.append(v)  # Append motor velocity to sensor data
     omega_1, lastTime, lastSteps = ENCODER.read_velocity(cpr, lastTime, lastSteps)  # Read first pendulum encoder velocity
     sensorData.append(omega_1)  # Append first pendulum velocity to sensor data
@@ -189,7 +189,7 @@ while True:
         movementTime = MOTOR.move_stepper(steps, stepPeriod, np.sign(u)*1)  # Move the motor in the direction of control output
         
         sensorTimeArray.append(sensorTime)
-        controlOutputCalculationTimeArray.append(controlOutputCalculationTime)
+        # controlOutputCalculationTimeArray.append(controlOutputCalculationTime)
         stepCalculationTimeArray.append(stepCalculationTime)
         movementTimeArray.append(movementTime)
 
@@ -216,11 +216,11 @@ while True:
         print('Data saved to CSV files.')
         print('Program terminated due to an error.')
         break
-    finally:
-        GPIO.cleanup()
-        np.array(sensorTimeArray).tofile('sensorTimeArray.csv', sep=',')
-        np.array(controlOutputCalculationTimeArray).tofile('controlOutputCalculationTimeArray.csv', sep=',')
-        np.array(stepCalculationTimeArray).tofile('stepCalculationTimeArray.csv', sep=',')
-        np.array(movementTimeArray).tofile('movementTimeArray.csv', sep=',')
-        print('Program terminated. Data saved to CSV files.')
-        break
+    # finally:
+    #     GPIO.cleanup()
+    #     np.array(sensorTimeArray).tofile('sensorTimeArray.csv', sep=',')
+    #     np.array(controlOutputCalculationTimeArray).tofile('controlOutputCalculationTimeArray.csv', sep=',')
+    #     np.array(stepCalculationTimeArray).tofile('stepCalculationTimeArray.csv', sep=',')
+    #     np.array(movementTimeArray).tofile('movementTimeArray.csv', sep=',')
+    #     print('Program terminated. Data saved to CSV files.')
+    #     break

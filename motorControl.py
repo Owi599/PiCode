@@ -60,14 +60,14 @@ class MotorControl():
         stepPeriod = min(stepPeriod, maxDelay)
         endTime = time.perf_counter()
         stepCalculationTime = endTime - startTime
-        
-        return steps_int, stepPeriod, stepCalculationTime
+        direction = 1*np.sign(self.velocity_integral)  # Determine direction based on velocity sign
+        return steps_int, stepPeriod, stepCalculationTime , direction
     
     def get_t_sample(self):
         return self.t_sample
     
     
-    @timeout_decorator.timeout(get_t_sample)  # Set a timeout of 3 seconds for the move_stepper function
+    @timeout_decorator.timeout(get_t_sample)  # Set a timeout of 0.02 seconds for the move_stepper function
     def move_stepper(self,steps, stepPeriod, direction):
         startTime = time.perf_counter()
         if direction == 1:
@@ -85,7 +85,6 @@ class MotorControl():
             time.sleep(stepPeriod/2)
         endTime = time.perf_counter()
         movementTime = endTime - startTime
-        return movementTime
 
     def stop_motor(self):
         print('Motor stopping')

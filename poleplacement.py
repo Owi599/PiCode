@@ -37,4 +37,4 @@ class PolePlacement:
         u = -K @ x
         endTime = time.perf_counter()
         controlOutputCalculationTime = endTime - startTime
-        return u,controlOutputCalculationTime
+        return float(u),controlOutputCalculationTime
