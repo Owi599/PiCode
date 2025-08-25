@@ -180,7 +180,7 @@ while True:
     try:
         sensorData, lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m,sensorTime = read_sensors_data(lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m)  # Read sensor data
         print('Sensor Data:',sensorData)
-        u, controlOutputCalculationTime = PP_CONTROLLER.compute_contorller_output(K, sensorData)  # Compute control output u
+        u, controlOutputCalculationTime = PP_CONTROLLER.compute_controller_output(K, sensorData)  # Compute control output u
         #LQR_CONTROLLER.compute_control_output_discrete(K_d ,sensorData)  # Compute control output u
         print('Control Output:', u)
         

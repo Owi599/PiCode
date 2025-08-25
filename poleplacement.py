@@ -30,8 +30,8 @@ class PolePlacement:
         dominantEigenvalue = min(eigenvalues, key=lambda ev: abs(ev.real))
         timeConstant = 1 / abs(dominantEigenvalue.real)
         return eigenvalues, dominantEigenvalue, timeConstant
-    
-    def compute_contorller_output(self, K, x):
+    # controller not contorller 
+    def compute_controller_output(self, K, x):
         # Compute the control input
         startTime = time.perf_counter()
         u = -K @ x
