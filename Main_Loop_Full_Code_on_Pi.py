@@ -177,7 +177,7 @@ stepCalculationTimeArray = []  # Array to store step calculation times
 movementTimeArray = []  # Array to store movement times
 n = 0
 # Main loop
-while n < 1:
+while n < 4:
     try:
         sensorData, lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m,sensorTime = read_sensors_data(lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m)  # Read sensor data
         print('Sensor Data:',sensorData)
@@ -187,22 +187,17 @@ while n < 1:
         
         steps, stepPeriod,stepCalculationTime, direction = MOTOR.calculate_steps(u)  # Calculate motor steps and period
         
-        movementStartTime = time.perf_counter()
-        #if np.sign(direction)*1 == 1:
-            #MOTOR.move_stepper(steps, stepPeriod, 1)  # Move the motor in the direction of control output
-        #else:
-        MOTOR.move_stepper(steps, stepPeriod, -1)  # Move the motor in the direction of control output
-        movementEndTime = time.perf_counter()
-        movementTime = movementEndTime - movementStartTime
+        movementTime = MOTOR.move_stepper(steps, stepPeriod, np.sign(direction)*1)  # Move the motor in the direction of control output
         sensorTimeArray.append(sensorTime)
-        # controlOutputCalculationTimeArray.append(controlOutputCalculationTime)
+        controlOutputCalculationTimeArray.append(controlOutputCalculationTime)
         stepCalculationTimeArray.append(stepCalculationTime)
         movementTimeArray.append(movementTime)
         n += 1
-    except TimeoutError:
-        print("Function timed out. loop starting over.")
-        continue 
 
+    except TimeoutError:
+
+        print("Function timed out. loop starting over.")
+        pass
     except KeyboardInterrupt:
         GPIO.cleanup()
         np.array(sensorTimeArray).tofile('sensorTimeArray.csv', sep=',')
@@ -213,15 +208,15 @@ while n < 1:
         break
 
     except Exception as e:
-        print('An error occurred:', str(e))
-        GPIO.cleanup()
-        np.array(sensorTimeArray).tofile('sensorTimeArray.csv', sep=',')
-        np.array(controlOutputCalculationTimeArray).tofile('controlOutputCalculationTimeArray.csv', sep=',')
-        np.array(stepCalculationTimeArray).tofile('stepCalculationTimeArray.csv', sep=',')
-        np.array(movementTimeArray).tofile('movementTimeArray.csv', sep=',')
-        print('Data saved to CSV files.')
-        print('Program terminated due to an error.')
-        break
+       print('An error occurred:', str(e)) 
+       GPIO.cleanup()
+       np.array(sensorTimeArray).tofile('sensorTimeArray.csv', sep=',')
+       np.array(controlOutputCalculationTimeArray).tofile('controlOutputCalculationTimeArray.csv', sep=',')
+       np.array(stepCalculationTimeArray).tofile('stepCalculationTimeArray.csv', sep=',')
+       np.array(movementTimeArray).tofile('movementTimeArray.csv', sep=',')
+       print('Data saved to CSV files.')
+       print('Program terminated due to an error.')
+       break
     # finally:
     #     GPIO.cleanup()
     #     np.array(sensorTimeArray).tofile('sensorTimeArray.csv', sep=',')
