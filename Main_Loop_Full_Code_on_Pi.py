@@ -106,7 +106,7 @@ PP_CONTROLLER = PolePlacement(A, B, C, D)  # Pole placement controller object
 # print('Time Constant:',LQR_CONTROLLER.compute_eigenvalues_discrete(Q,R,sys_D,K_d))  # Print the time constant of the system
 desired_poles = [-6.66,-6,-5,-5.66,-7.66,-8]
 K = PP_CONTROLLER.compute_poles(desired_poles)  # Compute the state feedback gain matrix K
-
+print("K",K)
 eigenvalues, dominantEigenvalue, timeConstant = PP_CONTROLLER.compute_eigenvalues_and_time_constant(K)  # Compute eigenvalues and time constant
 print('Eigenvalues:', eigenvalues)  # Print the eigenvalues of the closed-loop system
 print('Dominant Eigenvalue:', dominantEigenvalue)  # Print the dominant eigenvalue
@@ -175,8 +175,9 @@ sensorTimeArray = []  # Array to store sensor data reading times
 controlOutputCalculationTimeArray = []  # Array to store control calculation times
 stepCalculationTimeArray = []  # Array to store step calculation times
 movementTimeArray = []  # Array to store movement times
+n = 0
 # Main loop
-while True:
+while n < 1:
     try:
         sensorData, lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m,sensorTime = read_sensors_data(lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m)  # Read sensor data
         print('Sensor Data:',sensorData)
@@ -184,15 +185,20 @@ while True:
         #LQR_CONTROLLER.compute_control_output_discrete(K_d ,sensorData)  # Compute control output u
         print('Control Output:', u)
         
-        steps, stepPeriod,stepCalculationTime = MOTOR.calculate_steps(u[0])  # Calculate motor steps and period
+        steps, stepPeriod,stepCalculationTime, direction = MOTOR.calculate_steps(u)  # Calculate motor steps and period
         
-        movementTime = MOTOR.move_stepper(steps, stepPeriod, np.sign(u)*1)  # Move the motor in the direction of control output
-        
+        movementStartTime = time.perf_counter()
+        #if np.sign(direction)*1 == 1:
+            #MOTOR.move_stepper(steps, stepPeriod, 1)  # Move the motor in the direction of control output
+        #else:
+        MOTOR.move_stepper(steps, stepPeriod, -1)  # Move the motor in the direction of control output
+        movementEndTime = time.perf_counter()
+        movementTime = movementEndTime - movementStartTime
         sensorTimeArray.append(sensorTime)
         # controlOutputCalculationTimeArray.append(controlOutputCalculationTime)
         stepCalculationTimeArray.append(stepCalculationTime)
         movementTimeArray.append(movementTime)
-
+        n += 1
     except TimeoutError:
         print("Function timed out. loop starting over.")
         continue 

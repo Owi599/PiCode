@@ -36,20 +36,21 @@ class MotorControl():
         startTime = time.perf_counter()
         #velocity and Speed in RPM
         acceleration = force/self.m_total
+        print('Acceleration:',acceleration)
         self.velocity_integral += acceleration*self.dt 
         self.position_integral += self.velocity_integral*self.dt
-        
-        
+        print('End position',self.position_integral)
+        print('Velocity before clipping',self.velocity_integral)
         #Check for maximum speed
         if abs(self.velocity_integral) > self.velocity_max:
             self.velocity_integral = np.sign(self.velocity_integral) * self.velocity_max
             print('Warning:Speed cannot be greater than 2000 rpm')
+        print('Velocity after clipping:',self.velocity_integral)
         
-        
-        steps_int = max(int((self.position_integral*self.stepsPerRev*self.microresolution)/(2*np.pi*self.pulleyRad)), 1)  # Ensures at least 1 step
-        #print(steps_int)
-        stepFreq = (abs(self.velocity_integral) * self.microresolution) / (self.pulleyRad/2*np.pi)  # Frequency in Hz
-        
+        steps_int = abs(max(int((self.position_integral*self.stepsPerRev*self.microresolution)/(2*np.pi*self.pulleyRad)), 1))  # Ensures at least 1 step
+        print(steps_int)
+        stepFreq = (abs(self.velocity_integral) * self.microresolution) / (self.pulleyRad/(2*np.pi))  # Frequency in Hz
+        print(stepFreq)
         if stepFreq == 0:
             stepPeriod = 0  # Motor is not moving
         else:
@@ -57,19 +58,21 @@ class MotorControl():
         
         # # Set maximum delay to prevent out-of-bound values
         maxDelay = self.t_sample   # maximum delay
-        stepPeriod = min(stepPeriod, maxDelay)
+        print(maxDelay)
+        stepPeriod = float(min(stepPeriod, maxDelay))
+        print(stepPeriod)
         endTime = time.perf_counter()
         stepCalculationTime = endTime - startTime
-        direction = 1*np.sign(self.velocity_integral)  # Determine direction based on velocity sign
+        direction = int(1*np.sign(self.velocity_integral))  # Determine direction based on velocity sign
+        print(direction)
         return steps_int, stepPeriod, stepCalculationTime , direction
     
     def get_t_sample(self):
-        return self.t_sample
+        return float(self.t_sample)
     
     
     @timeout_decorator.timeout(get_t_sample)  # Set a timeout of 0.02 seconds for the move_stepper function
-    def move_stepper(self,steps, stepPeriod, direction):
-        startTime = time.perf_counter()
+    def move_stepper(self,steps:int, stepPeriod:float, direction:int):
         if direction == 1:
             GPIO.output(self.DIR, GPIO.HIGH)
         elif direction == -1:
@@ -78,13 +81,11 @@ class MotorControl():
             raise ValueError('Direction must be 1 or -1')
         
 
-        for step in range(abs(steps)):
+        for step in range(steps):
             GPIO.output(self.pulsePin,GPIO.HIGH)
             time.sleep(stepPeriod/2)
             GPIO.output(self.pulsePin,GPIO.LOW)
             time.sleep(stepPeriod/2)
-        endTime = time.perf_counter()
-        movementTime = endTime - startTime
 
     def stop_motor(self):
         print('Motor stopping')
