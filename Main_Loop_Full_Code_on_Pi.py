@@ -76,9 +76,7 @@ C = np.array([[1, 0, 0, 0, 0, 0]])
 D = np.array([[0]])
 t_s = 0.02  # Sampling time
 
-# LQR Parameters
-# Q = np.diag([1000, 50, 50, 1000, 10, 10])  # State cost matrix
-# R = np.array([[100]])  # Control cost matrix
+
 
 # Other Constants
 stepsPerRev = 200  # Steps per revolution for the motor
@@ -96,14 +94,8 @@ ENCODER.steps = 625  # Set the steps for the rotary encoder
 #END_SWITCH = EndSwitch(switchPin_1)  # End switch 1
 #END_SWITCH_2 = EndSwitch(switchPin_2)  # End switch 2
 MOTOR = MotorControl(pulsePin, dirPin, stepsPerRev, pulleyRad, holdingTorque, t_s)  # Motor control object
-# LQR_CONTROLLER = LQR(A, B, C, D, Q, R)  # LQR controller object
 PP_CONTROLLER = PolePlacement(A, B, C, D)  # Pole placement controller object
-# Discrete-time system
-# sys_C, sys_D = LQR_CONTROLLER.covert_continuous_to_discrete(A, B, C, D, t_s)  # Convert continuous to discrete system
-# # calculate K_discrete
-# K_d = LQR_CONTROLLER.compute_K_discrete(Q, R, sys_D)  # Compute the LQR gain for discrete system
-# print('K_d:', K_d)  # Print the LQR gain
-# print('Time Constant:',LQR_CONTROLLER.compute_eigenvalues_discrete(Q,R,sys_D,K_d))  # Print the time constant of the system
+
 desired_poles = [-6.66,-6,-5,-5.66,-7.66,-8]
 K = PP_CONTROLLER.compute_poles(desired_poles)  # Compute the state feedback gain matrix K
 print("K",K)
@@ -137,8 +129,8 @@ def end_switch_callback(channel,MotorControl):
 # define event interrupt
 GPIO.setup(switchPin_1, GPIO.IN)  # Set up end switch 1
 GPIO.setup(switchPin_2, GPIO.IN)  # Set up end switch 2
-GPIO.add_event_detect(switchPin_1, GPIO.FALLING, callback=lambda x: end_switch_callback(switchPin_1,MOTOR), bouncetime=10)  # Event detection for end switch 1
-GPIO.add_event_detect(switchPin_2, GPIO.FALLING, callback=lambda x: end_switch_callback(switchPin_2,MOTOR), bouncetime=10)  # Event detection for end switch 2
+GPIO.add_event_detect(switchPin_1, GPIO.FALLING, callback=lambda x: end_switch_callback(switchPin_1,MOTOR), bouncetime=1)  # Event detection for end switch 1
+GPIO.add_event_detect(switchPin_2, GPIO.FALLING, callback=lambda x: end_switch_callback(switchPin_2,MOTOR), bouncetime=1)  # Event detection for end switch 2
 
 # def home_cart(MotorControl, ReadMotorEncoder):
 #     while True:
@@ -177,27 +169,25 @@ stepCalculationTimeArray = []  # Array to store step calculation times
 movementTimeArray = []  # Array to store movement times
 n = 0
 # Main loop
-while n < 4:
+while n < 1:
     try:
         sensorData, lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m,sensorTime = read_sensors_data(lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m)  # Read sensor data
         print('Sensor Data:',sensorData)
         u, controlOutputCalculationTime = PP_CONTROLLER.compute_controller_output(K, sensorData)  # Compute control output u
-        #LQR_CONTROLLER.compute_control_output_discrete(K_d ,sensorData)  # Compute control output u
         print('Control Output:', u)
-        
+        n += 1
+
         steps, stepPeriod,stepCalculationTime, direction = MOTOR.calculate_steps(u)  # Calculate motor steps and period
-        
-        movementTime = MOTOR.move_stepper(steps, stepPeriod, np.sign(direction)*1)  # Move the motor in the direction of control output
+
+        movementTime = MOTOR.move_stepper(steps, stepPeriod, np.sign(direction)*1,timeout=0.02)  # Move the motor in the direction of control output
         sensorTimeArray.append(sensorTime)
         controlOutputCalculationTimeArray.append(controlOutputCalculationTime)
         stepCalculationTimeArray.append(stepCalculationTime)
         movementTimeArray.append(movementTime)
-        n += 1
 
     except TimeoutError:
-
         print("Function timed out. loop starting over.")
-        pass
+        continue
     except KeyboardInterrupt:
         GPIO.cleanup()
         np.array(sensorTimeArray).tofile('sensorTimeArray.csv', sep=',')
@@ -217,11 +207,3 @@ while n < 4:
        print('Data saved to CSV files.')
        print('Program terminated due to an error.')
        break
-    # finally:
-    #     GPIO.cleanup()
-    #     np.array(sensorTimeArray).tofile('sensorTimeArray.csv', sep=',')
-    #     np.array(controlOutputCalculationTimeArray).tofile('controlOutputCalculationTimeArray.csv', sep=',')
-    #     np.array(stepCalculationTimeArray).tofile('stepCalculationTimeArray.csv', sep=',')
-    #     np.array(movementTimeArray).tofile('movementTimeArray.csv', sep=',')
-    #     print('Program terminated. Data saved to CSV files.')
-    #     break

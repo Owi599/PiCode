@@ -70,7 +70,7 @@ class MotorControl():
    
     
     
-    @timeout_decorator.timeout(0.02)  # Set a timeout of 0.02 seconds for the move_stepper function
+    @timeout_decorator.timeout(0.02,timeout_exception=TimeoutError)  # Set a timeout of 0.02 seconds for the move_stepper function
     def move_stepper(self,steps:int, stepPeriod:float, direction:int):
         if direction == 1:
             GPIO.output(self.DIR, GPIO.HIGH)
@@ -86,7 +86,7 @@ class MotorControl():
             time.sleep(stepPeriod/2)
             GPIO.output(self.pulsePin,GPIO.LOW)
             time.sleep(stepPeriod/2)
-        endTime = time.perf_counter
+        endTime = time.perf_counter()
         movementTime = endTime - startTime
         return movementTime
 
