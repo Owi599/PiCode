@@ -169,7 +169,7 @@ stepCalculationTimeArray = []  # Array to store step calculation times
 movementTimeArray = []  # Array to store movement times
 n = 0
 # Main loop
-while n < 1:
+while True:
     try:
         sensorData, lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m,sensorTime = read_sensors_data(lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m)  # Read sensor data
         print('Sensor Data:',sensorData)
@@ -186,7 +186,7 @@ while n < 1:
         movementTimeArray.append(movementTime)
 
     except TimeoutError:
-        print("Function timed out. loop starting over.")
+        print("Function timed out. loop starting over.\n")
         continue
     except KeyboardInterrupt:
         GPIO.cleanup()

@@ -50,7 +50,7 @@ class MotorControl():
         steps_int = abs(max(int((self.position_integral*self.stepsPerRev*self.microresolution)/(2*np.pi*self.pulleyRad)), 1))  # Ensures at least 1 step
         print(steps_int)
         stepFreq = (abs(self.velocity_integral) * self.microresolution) / (self.pulleyRad/(2*np.pi))  # Frequency in Hz
-        print(stepFreq)
+        #print(stepFreq)
         if stepFreq == 0:
             stepPeriod = 0  # Motor is not moving
         else:
@@ -58,13 +58,13 @@ class MotorControl():
         
         # # Set maximum delay to prevent out-of-bound values
         maxDelay = self.t_sample   # maximum delay
-        print(maxDelay)
+        #print(maxDelay)
         stepPeriod = float(min(stepPeriod, maxDelay))
-        print(stepPeriod)
+        #print(stepPeriod)
         endTime = time.perf_counter()
         stepCalculationTime = endTime - startTime
         direction = int(1*np.sign(self.velocity_integral))  # Determine direction based on velocity sign
-        print(direction)
+        #print(direction)
         return steps_int, stepPeriod, stepCalculationTime , direction
     
    
