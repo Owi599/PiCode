@@ -3,6 +3,7 @@ import numpy as np
 import control as ctrl                # Control system library for Python
 import matplotlib.pyplot as plt       # Importing the plotting library
 import random as rnd
+import math as m
 # Pendulum Parameters
 pi = np.pi
 m_c = 0.6
@@ -61,6 +62,41 @@ if np.linalg.matrix_rank(Ct) < A.shape[0]:
     raise ValueError("The system is not controllable.")
 print('Controllability matrix rank:', np.linalg.matrix_rank(Ct))
 
+def calculate_steps(force):
+        #velocity and Speed in RPM
+        print('force:', force)
+        velocity_integral = 0
+        position_integral = 0
+        acceleration = force/(0.6 + 0.104 + 0.102)
+        print('Acceleration:',acceleration)
+        velocity_integral += acceleration*0.02
+        print('Velocity before clipping',velocity_integral)
+        #Check for maximum speed
+        if abs(velocity_integral) > (0.1047*0.0125*2000):
+            velocity_integral = np.sign(velocity_integral) * (0.1047*0.0125*2000)
+            print('Warning:Speed cannot be greater than 2000 rpm')
+        print('Velocity after clipping:',velocity_integral)
+        position_integral += velocity_integral*0.02
+        print('End position',position_integral)
+        steps_int = m.floor(abs((position_integral*200*4)/(2*np.pi*0.0125)))  # Ensures at least 1 step
+        print(steps_int)
+        stepFreq = (abs(velocity_integral) * 4 * 200 ) / (0.0125*(2*np.pi))   # Frequency in Hz
+        # print(stepFreq)
+        if stepFreq == 0:
+            stepPeriod = 0  # Motor is not moving
+        else:
+            stepPeriod = 1 / stepFreq
+        
+        # # Set maximum delay to prevent out-of-bound values
+        maxDelay = 0.02   # maximum delay
+        #print(maxDelay)
+        stepPeriod = float(min(stepPeriod, maxDelay))
+        print(stepPeriod)
+        
+        direction = int(1*np.sign(velocity_integral))  # Determine direction based on velocity sign
+        #print(direction)
+        return steps_int, stepPeriod,  direction
+    
 # # Variables to store the best configuration
 # min_time_const = float('inf')
 # best_q_scale, best_r_scale = None, None
@@ -98,7 +134,7 @@ print('Controllability matrix rank:', np.linalg.matrix_rank(Ct))
 
 desired_poles = [-6.66,-6,-5,-5.66,-7.66,-8]  # Desired poles for the system
 K = ctrl.place(A, B, desired_poles)
-
+print(K)
 # Best controller configuration
 A_cl = A - B @ K
 Eigs = np.linalg.eigvals(A_cl)
@@ -111,19 +147,47 @@ sys_cl = ctrl.ss(A_cl, B * 0, np.eye(A.shape[0]), np.zeros((A.shape[0], 1)))
 
 # Initial state and time for simulation
 x0 = np.array([0, pi, 0, 0, 0, 0])
-t = np.linspace(0, 10, 1000)
+T_s = 0.02
+t = np.arange(0,10,T_s)
+t_start = 0
+t_end = t_start + T_s
 _, y = ctrl.forced_response(sys_cl, T=t, U=np.zeros_like(t), X0=x0)
+U = np.matmul(K,y)
 
+print(U.size)
+
+
+# # cart_position = y[0,:]
+# threshold = 0.001
+# # rect_pulse = np.where(np.abs(cart_position)>threshold,1,0)
+stepset = [] 
+i = 0 
+while i < U.size:
+    stepset.append(calculate_steps(U[0,i]))
+    # stepset[1,i].append(calculate_steps(U[0,i])(1))
+    # stepset[2,i].append(calculate_steps(U[0,i])(2))
+    i+=1    
+print(stepset)
+
+
+# y_discrete_0 = np.interp(0,t,y[0])
+# y_discrete_1 = np.interp(0,t,y[1])
+# y_discrete_2 = np.interp(0,t,y[2])
+# y_discrete_3 = np.interp(0,t,y[3])
+# y_discrete_4 = np.interp(0,t,y[4])
+# y_discrete_5 = np.interp(0,t,y[5])
 plt.figure(figsize=(10, 6))
-plt.plot(t, y[0], label='Cart Position (m)')
-plt.plot(t, y[3], label='Cart Velocity (m/s)')
-plt.plot(t, y[1], label='Pendulum 1 Angle (rad)')
-plt.plot(t, y[2], label='Pendulum 2 Angle (rad)')
-plt.plot(t, y[4], label='Pendulum 1 Angular Velocity (rad/s)')
-plt.plot(t, y[5], label='Pendulum 2 Angular Velocity (rad/s)')
-plt.xlabel('Time (s)')
-plt.ylabel('States')
-plt.title('System Response with State Feedback Control ')
+plt.plot(t,stepset)
+# plt.step(t, cart_position, where='post', label='Rectangular Pulse (thresholded)')
+# plt.plot(t, y_discrete_0, label='Cart Position (m)')
+# plt.plot(t_discrete, y_discrete_3, label='Cart Velocity (m/s)')
+# plt.plot(t_discrete, y_discrete_1, label='Pendulum 1 Angle (rad)')
+# plt.plot(t_discrete, y_discrete_4, label='Pendulum 1 Angular Velocity (rad/s)')
+# plt.plot(t_discrete, y_discrete_2, label='Pendulum 2 Angle (rad)')
+# plt.plot(t_discrete, y_discrete_5, label='Pendulum 2 Angular Velocity (rad/s)')
+# plt.xlabel('Time (s)')
+# plt.ylabel('States')
+# plt.title('System Response with State Feedback Control ')
 plt.legend()
 plt.grid()
 plt.show()

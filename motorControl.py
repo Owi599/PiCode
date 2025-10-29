@@ -38,18 +38,17 @@ class MotorControl():
         acceleration = force/self.m_total
         print('Acceleration:',acceleration)
         self.velocity_integral += acceleration*self.dt 
-        self.position_integral += self.velocity_integral*self.dt
-        print('End position',self.position_integral)
         print('Velocity before clipping',self.velocity_integral)
         #Check for maximum speed
         if abs(self.velocity_integral) > self.velocity_max:
             self.velocity_integral = np.sign(self.velocity_integral) * self.velocity_max
             print('Warning:Speed cannot be greater than 2000 rpm')
         print('Velocity after clipping:',self.velocity_integral)
-        
-        steps_int = abs(max(int((self.position_integral*self.stepsPerRev*self.microresolution)/(2*np.pi*self.pulleyRad)), 1))  # Ensures at least 1 step
+        self.position_integral += self.velocity_integral*self.dt
+        print('End position',self.position_integral)
+        steps_int = abs(int((self.position_integral*self.stepsPerRev*self.microresolution)/(2*np.pi*self.pulleyRad)))  # Ensures at least 1 step
         print(steps_int)
-        stepFreq = (abs(self.velocity_integral) * self.microresolution) / (self.pulleyRad/(2*np.pi))  # Frequency in Hz
+        stepFreq = (abs(self.velocity_integral) * self.microresolution * self.stepsPerRev)  / (self.pulleyRad/(2*np.pi))  # Frequency in Hz
         #print(stepFreq)
         if stepFreq == 0:
             stepPeriod = 0  # Motor is not moving
@@ -79,16 +78,16 @@ class MotorControl():
         else:
             raise ValueError('Direction must be 1 or -1')
         
-            
-        startTime = time.perf_counter()
-        for step in range(steps):
-            GPIO.output(self.pulsePin,GPIO.HIGH)
-            time.sleep(stepPeriod/2)
-            GPIO.output(self.pulsePin,GPIO.LOW)
-            time.sleep(stepPeriod/2)
-        endTime = time.perf_counter()
-        movementTime = endTime - startTime
-        return movementTime
+        if steps != 0:    
+            startTime = time.perf_counter()
+            for _ in range(steps):
+                GPIO.output(self.pulsePin,GPIO.HIGH)
+                time.sleep(stepPeriod/2)
+                GPIO.output(self.pulsePin,GPIO.LOW)
+                time.sleep(stepPeriod/2)
+            endTime = time.perf_counter()
+            movementTime = endTime - startTime
+            return movementTime
 
     def stop_motor(self):
         print('Motor stopping')
