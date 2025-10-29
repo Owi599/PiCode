@@ -22,6 +22,7 @@ def move_stepper(steps:int, stepPeriod:float, direction:int):
             time.sleep(stepPeriod/2)
 
 try:
+    
     move_stepper(206,9.680295166085153e-05,-1)
     move_stepper(108,0.00018456327791018692,-1)
     move_stepper(42,0.0004711074615600865,-1)
@@ -37,15 +38,15 @@ try:
     move_stepper(41, 0.00048313817081749744, 1)
     move_stepper(36, 0.0005485677534992563, 1)
     move_stepper(31, 0.0006356521130487768, 1)
-    move_stepper()
-    move_stepper()
-    move_stepper()
-    move_stepper()
-    move_stepper()
-    move_stepper()
-    move_stepper()
-    move_stepper()
-    move_stepper()
+    # move_stepper()
+    # move_stepper()
+    # move_stepper()
+    # move_stepper()
+    # move_stepper()
+    # move_stepper()
+    # move_stepper()
+    # move_stepper()
+    # move_stepper()
 
 except Exception as e:
     print('An error occurred:', str(e)) 

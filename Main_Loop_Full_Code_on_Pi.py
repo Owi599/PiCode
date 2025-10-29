@@ -173,15 +173,14 @@ while True:
     try:
         sensorData, lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m,sensorTime = read_sensors_data(lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m)  # Read sensor data
         print('Sensor Data:',sensorData)
-        u, controlOutputCalculationTime = PP_CONTROLLER.compute_controller_output(K, sensorData)  # Compute control output u
+        u = - K @ sensorData  # Compute control output u
         print('Control Output:', u)
-        n += 1
 
         steps, stepPeriod,stepCalculationTime, direction = MOTOR.calculate_steps(u)  # Calculate motor steps and period
-
+        print('steps:', steps, 'step periiod:',stepPeriod)
         movementTime = MOTOR.move_stepper(steps, stepPeriod, np.sign(direction)*1,timeout=0.02)  # Move the motor in the direction of control output
         sensorTimeArray.append(sensorTime)
-        controlOutputCalculationTimeArray.append(controlOutputCalculationTime)
+        # controlOutputCalculationTimeArray.append(controlOutputCalculationTime)
         stepCalculationTimeArray.append(stepCalculationTime)
         movementTimeArray.append(movementTime)
 
