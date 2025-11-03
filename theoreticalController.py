@@ -4,6 +4,7 @@ import control as ctrl                # Control system library for Python
 import matplotlib.pyplot as plt       # Importing the plotting library
 import random as rnd
 import math as m
+from motorControl import MotorControl
 # Pendulum Parameters
 pi = np.pi
 m_c = 0.6
@@ -62,41 +63,13 @@ if np.linalg.matrix_rank(Ct) < A.shape[0]:
     raise ValueError("The system is not controllable.")
 print('Controllability matrix rank:', np.linalg.matrix_rank(Ct))
 
-def calculate_steps(force):
-        #velocity and Speed in RPM
-        print('force:', force)
-        velocity_integral = 0
-        position_integral = 0
-        acceleration = force/(0.6 + 0.104 + 0.102)
-        print('Acceleration:',acceleration)
-        velocity_integral += acceleration*1
-        print('Velocity before clipping',velocity_integral)
-        #Check for maximum speed
-        if abs(velocity_integral) > (0.1047*0.0125*2000):
-            velocity_integral = np.sign(velocity_integral) * (0.1047*0.0125*2000)
-            print('Warning:Speed cannot be greater than 2000 rpm')
-        print('Velocity after clipping:',velocity_integral)
-        position_integral += velocity_integral*1
-        print('End position',position_integral)
-        steps_int = m.floor(abs((position_integral*200*8*np.pi*0.0125)))  # Ensures at least 1 step
-        print(steps_int)
-        stepFreq = (abs(velocity_integral) * 8 * 200 ) / (0.0125*(2*np.pi))   # Frequency in Hz
-        # print(stepFreq)
-        if stepFreq == 0:
-            stepPeriod = 0  # Motor is not moving
-        else:
-            stepPeriod = 1 / stepFreq
-        
-        # # Set maximum delay to prevent out-of-bound values
-        maxDelay = 1   # maximum delay
-        #print(maxDelay)
-        stepPeriod = float(min(stepPeriod, maxDelay))
-        print(stepPeriod)
-        
-        direction = int(1*np.sign(velocity_integral))  # Determine direction based on velocity sign
-        #print(direction)
-        return steps_int, stepPeriod,  direction
-    
+pulsePin = 9
+dirPin = 10
+stepsPerRev = 200
+pulleyRad = 0.0125
+holdingTorque = 2
+t_s = 0.02
+MOTOR = MotorControl(pulsePin, dirPin, stepsPerRev, pulleyRad, holdingTorque, t_s)  # Motor control object
 # # Variables to store the best configuration
 # min_time_const = float('inf')
 # best_q_scale, best_r_scale = None, None
@@ -163,7 +136,7 @@ print(U.size)
 stepset = [] 
 i = 0 
 while i < U.size:
-    stepset.append(calculate_steps(U[0,i]))
+    stepset.append(MOTOR.calculate_steps(U[0,i]))
     # stepset[1,i].append(calculate_steps(U[0,i])(1))
     # stepset[2,i].append(calculate_steps(U[0,i])(2))
     i+=1    
