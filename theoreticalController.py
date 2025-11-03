@@ -69,18 +69,18 @@ def calculate_steps(force):
         position_integral = 0
         acceleration = force/(0.6 + 0.104 + 0.102)
         print('Acceleration:',acceleration)
-        velocity_integral += acceleration*0.02
+        velocity_integral += acceleration*1
         print('Velocity before clipping',velocity_integral)
         #Check for maximum speed
         if abs(velocity_integral) > (0.1047*0.0125*2000):
             velocity_integral = np.sign(velocity_integral) * (0.1047*0.0125*2000)
             print('Warning:Speed cannot be greater than 2000 rpm')
         print('Velocity after clipping:',velocity_integral)
-        position_integral += velocity_integral*0.02
+        position_integral += velocity_integral*1
         print('End position',position_integral)
-        steps_int = m.floor(abs((position_integral*200*4)/(2*np.pi*0.0125)))  # Ensures at least 1 step
+        steps_int = m.floor(abs((position_integral*200*8*np.pi*0.0125)))  # Ensures at least 1 step
         print(steps_int)
-        stepFreq = (abs(velocity_integral) * 4 * 200 ) / (0.0125*(2*np.pi))   # Frequency in Hz
+        stepFreq = (abs(velocity_integral) * 8 * 200 ) / (0.0125*(2*np.pi))   # Frequency in Hz
         # print(stepFreq)
         if stepFreq == 0:
             stepPeriod = 0  # Motor is not moving
@@ -88,7 +88,7 @@ def calculate_steps(force):
             stepPeriod = 1 / stepFreq
         
         # # Set maximum delay to prevent out-of-bound values
-        maxDelay = 0.02   # maximum delay
+        maxDelay = 1   # maximum delay
         #print(maxDelay)
         stepPeriod = float(min(stepPeriod, maxDelay))
         print(stepPeriod)
@@ -147,7 +147,7 @@ sys_cl = ctrl.ss(A_cl, B * 0, np.eye(A.shape[0]), np.zeros((A.shape[0], 1)))
 
 # Initial state and time for simulation
 x0 = np.array([0, pi, 0, 0, 0, 0])
-T_s = 0.02
+T_s = 1
 t = np.arange(0,10,T_s)
 t_start = 0
 t_end = t_start + T_s
