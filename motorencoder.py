@@ -1,32 +1,54 @@
+import pigpio
 import time
 import numpy as np
-from gpiozero import RotaryEncoder
+from pigpio_encoder.rotary import Rotary
 
-class ReadMotorEncoder(RotaryEncoder):
-	def read_position(self,cpr,microstep):
-		# Calculate the angle and position
-		distancePerStep = (2 * np.pi * 0.0125) /   cpr # m
-		position = (distancePerStep * self.steps) # m
-		return position
+class ReadMotorEncoder:
+    def __init__(self, clk_gpio, dt_gpio, pi, wheel_radius = 0.0125):
+        self.pi = pi 
+        self.steps = 0
+        self.wheel_radius = wheel_radius
+        self.last_time = time.time()
+        self.last_steps = 0
 
-	def read_velocity(self,cpr,l_t,l_s):
-		currentTime = time.time()
-		currentSteps = self.steps
-        
-		# Calculate the time difference and step difference
-		timeDiff = currentTime - l_t
-		stepDiff = currentSteps - l_s
-		
-		minTimeDiff = 0.001
-		
-		timeDiff = max(timeDiff, minTimeDiff)
+        self.rotary = Rotary(clk_gpio=clk_gpio,dt_gpio=dt_gpio,pi= self.pi)
+        self.rotary.setup_rotary(rotary_callback =self._rotary_callback)
 
+    def _rotary_callback(self,counter):
+        self.steps = counter
+
+    def calibrate(self):
+        self.rotary.counter = 0
+        self.steps = 0
+        self.last_steps = 0
+        print('Cart position caibrated to 0 meters')
+
+    def read_position(self,cpr):
+        circumference = 2* np.pi * self.wheel_radius
+        distance_per_step = circumference/cpr
+
+        position = self.steps * distance_per_step
+        return position
+    
+    def read_velocity(self, cpr):
+        current_time = time.time()
+        current_steps = self.steps
+
+        time_diff = current_time - self.last_time
+        step_diff = current_steps - self.last_steps
+
+        if time_diff < 0.00001:
+            return 0 , current_time, current_steps
         
-		# Calculate velocity
-		distancePerStep = (2 * np.pi * 0.0125) /  cpr  # m 
-		velocity = (stepDiff /timeDiff) * distancePerStep  # m/s
-        
-		# Update last_time and last_steps
-		
-		return velocity, currentTime, currentSteps
- 
+        circumference = 2* np.pi * self.wheel_radius
+        distance_per_step = circumference/cpr
+        velocity = (step_diff/time_diff) *distance_per_step
+
+        self.last_time = current_time
+        self.last_steps = current_steps
+
+        return velocity, current_time, current_steps
+    
+    def cleanup(self):
+        self.rotary.cancel()
+

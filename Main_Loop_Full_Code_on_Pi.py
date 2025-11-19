@@ -1,18 +1,19 @@
-# Necessary imports
-from rotaryencoder import ReadRotaryEncoder # Class for reading and parsing rotary encoders' data
-from motorencoder import ReadMotorEncoder   # Class for reading and parsing motor encoders' data
-from endswitch import EndSwitch             # Class for reading and parsing photoelectronic sensors' data
-from lqr import LQR                         # Class for Linear Quadratic Regulator (LQR) control
-from poleplacement import PolePlacement     # Class for Pole Placement control
-from motorControl import MotorControl       # Class for controlling motor output
-import RPi.GPIO as GPIO                     # GPIO library for Raspberry Pi 
-import numpy as np                          # Numpy library for numerical operations  
-import time                                 # Time library for time operations  
-import timeout_decorator                    # Timeout decorator for function execution time limits
-GPIO.setmode(GPIO.BCM)
-GPIO.setwarnings(False)
+# Updated Main-loop for pigpio-based encoder and motor control
+import pigpio
+import numpy as np
+import time
+from rotaryEncoder import ReadRotaryEncoder  # pigpio-based class for rotary encoders
+from motorEncoder import ReadMotorEncoder    # pigpio-based class for motor encoder
+from motorControl import MotorControl        # pigpio-based class for stepper control
+from lqr import LQR                         # Controller classes as before
+from poleplacement import PolePlacement
 
-# Pins
+# GPIO and pigpio daemon setup
+pi = pigpio.pi()
+if not pi.connected:
+    raise RuntimeError("Could not connect to pigpio daemon. Did you run 'sudo pigpiod'?")
+
+# Assign GPIO pins (update as needed)
 switchPin_1 = 4
 switchPin_2 = 3
 pulsePin = 9
@@ -24,8 +25,8 @@ encoder_2_B = 12
 motor_encoder_A = 7
 motor_encoder_B = 8
 
-# Pendulum Parameters
-pi = np.pi
+# Pendulum and cart physical parameters (unchanged)
+pi_const = np.pi
 m_c = 0.6
 m_1 = 0.102
 m_2 = 0.104
@@ -40,7 +41,6 @@ b_c = 0.05
 b_1 = 0.01
 b_2 = 0.01
 
-# Intermediate calculations for the system matrices
 h_1 = m_c + m_1 + m_2
 h_2 = m_1 * lc_1 + m_2 * l_1
 h_3 = m_2 * lc_2
@@ -50,7 +50,6 @@ h_6 = m_2 * lc_2**2 + i_2
 h_7 = m_1 * lc_1 * g + m_2 * l_1 * g
 h_8 = m_2 * lc_2 * g
 
-# System matrix representation
 M = np.array([
     [1, 0, 0, 0, 0, 0],
     [0, 1, 0, 0, 0, 0],
@@ -69,140 +68,135 @@ N = np.array([
 ])
 F = np.array([[0], [0], [0], [1], [0], [0]])
 
-# Matrices of the state-space system
 A = np.linalg.solve(M, N)
 B = np.linalg.solve(M, F)
 C = np.array([[1, 0, 0, 0, 0, 0]])
 D = np.array([[0]])
 t_s = 0.02  # Sampling time
 
-
-
-# Other Constants
-stepsPerRev = 200  # Steps per revolution for the motor
-pulleyRad = 0.0125  # Radius of the pulley
-holdingTorque = 2  # Holding torque of the motor
-cpr_m = 500  # Counts per revolution for the motor encoder
-maxSteps = 625  # Maximum steps for the rotary encoder
-cpr = 1250  # Counts per revolution for the rotary encoder
+# Actuator/encoder configuration
+stepsPerRev = 200
+pulleyRad = 0.0125
+holdingTorque = 2
+cpr_m = 500
+cpr = 5000
 microstep = 4
-# Instantiating objects
-ENCODER = ReadRotaryEncoder(encoder_1_A, encoder_1_B, max_steps=maxSteps, wrap=True)  # Rotary encoder for the pendulum
-ENCODER_2 = ReadRotaryEncoder(encoder_2_A, encoder_2_B, max_steps=maxSteps, wrap=True)  # Rotary encoder for the second pendulum
-ENCODER_M = ReadMotorEncoder(motor_encoder_A, motor_encoder_B, max_steps=0)  # Motor encoder
-ENCODER.steps = 625  # Set the steps for the rotary encoder
-#END_SWITCH = EndSwitch(switchPin_1)  # End switch 1
-#END_SWITCH_2 = EndSwitch(switchPin_2)  # End switch 2
-MOTOR = MotorControl(pulsePin, dirPin, stepsPerRev, pulleyRad, holdingTorque, t_s)  # Motor control object
-PP_CONTROLLER = PolePlacement(A, B, C, D)  # Pole placement controller object
+
+# Use pigpio-based encoder classes
+ENCODER = ReadRotaryEncoder(encoder_1_A, encoder_1_B, pi, id="lower")       # Lower pendulum encoder
+ENCODER_2 = ReadRotaryEncoder(encoder_2_A, encoder_2_B, pi, id="upper")     # Upper pendulum encoder
+ENCODER_M = ReadMotorEncoder(motor_encoder_A, motor_encoder_B, pi)          # Cart (motor) encoder
+
+ENCODER.calibrate(pi_const)
+ENCODER_2.calibrate(0)
+ENCODER_M.calibrate()
+
+# Use pigpio-based motor control
+MOTOR = MotorControl(pi, pulsePin, dirPin, stepsPerRev, pulleyRad, microstep, t_s)
+PP_CONTROLLER = PolePlacement(A, B, C, D)
 
 desired_poles = [-6.66,-6,-5,-5.66,-7.66,-8]
-K = PP_CONTROLLER.compute_poles(desired_poles)  # Compute the state feedback gain matrix K
-print("K",K)
-eigenvalues, dominantEigenvalue, timeConstant = PP_CONTROLLER.compute_eigenvalues_and_time_constant(K)  # Compute eigenvalues and time constant
-print('Eigenvalues:', eigenvalues)  # Print the eigenvalues of the closed-loop system
-print('Dominant Eigenvalue:', dominantEigenvalue)  # Print the dominant eigenvalue
-print('Time Constant:', timeConstant)  # Print the time constant of the closed-loop system
+K = PP_CONTROLLER.compute_poles(desired_poles)
+print("K", K)
+eigenvalues, dominantEigenvalue, timeConstant = PP_CONTROLLER.compute_eigenvalues_and_time_constant(K)
+print('Eigenvalues:', eigenvalues)
+print('Dominant Eigenvalue:', dominantEigenvalue)
+print('Time Constant:', timeConstant)
 
-
-# define function to read sensor data
+# Sensor reading function updated for new API
 def read_sensors_data(lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m):
-    startTime = time.perf_counter()  # Start time for reading sensor data
+    startTime = time.perf_counter()
     sensorData = []
-    sensorData.append(ENCODER_M.read_position(cpr_m,microstep))  # Read motor encoder position
-    sensorData.append(ENCODER.read_position(cpr))  # Read first pendulum encoder position
-    sensorData.append(ENCODER_2.read_position(cpr))  # Read second pendulum encoder position
-    v, lastTime_m, lastSteps_m = ENCODER_M.read_velocity(cpr_m, lastTime, lastSteps_m)  # Read motor encoder velocity
-    sensorData.append(v)  # Append motor velocity to sensor data
-    omega_1, lastTime, lastSteps = ENCODER.read_velocity(cpr, lastTime, lastSteps)  # Read first pendulum encoder velocity
-    sensorData.append(omega_1)  # Append first pendulum velocity to sensor data
-    omega_2, lastTime_2, lastSteps_2 = ENCODER_2.read_velocity(cpr, lastTime, lastSteps_2)  # Read second pendulum encoder velocity
-    sensorData.append(omega_2)  # Append second pendulum velocity to sensor data
-    endTime = time.perf_counter()  # End time for reading sensor data
-    sensorTime = endTime - startTime  # Calculate sensor reading time
-    return sensorData, lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m,sensorTime  # Return the sensor data
+    sensorData.append(ENCODER_M.read_position(cpr_m))          # Cart position [m]
+    sensorData.append(ENCODER.read_position(cpr))              # Lower arm angle [rad]
+    sensorData.append(ENCODER_2.read_position(cpr))            # Upper arm angle [rad]
+    v, lastTime_m, lastSteps_m = ENCODER_M.read_velocity(cpr_m)# Cart velocity [m/s]
+    sensorData.append(v)
+    omega_1, lastTime, lastSteps = ENCODER.read_velocity(cpr)  # Lower arm angular velocity [rad/s]
+    sensorData.append(omega_1)
+    omega_2, lastTime_2, lastSteps_2 = ENCODER_2.read_velocity(cpr)# Upper arm angular velocity [rad/s]
+    sensorData.append(omega_2)
+    endTime = time.perf_counter()
+    sensorTime = endTime - startTime
+    return sensorData, lastTime, lastTime_2, lastTime_m, lastSteps, lastSteps_2, lastSteps_m, sensorTime
 
-# define call back function for the end switch
-def end_switch_callback(channel,MotorControl):
-    MotorControl.stop_motor()  # stop the motor
-    
-# define event interrupt
-GPIO.setup(switchPin_1, GPIO.IN)  # Set up end switch 1
-GPIO.setup(switchPin_2, GPIO.IN)  # Set up end switch 2
-GPIO.add_event_detect(switchPin_1, GPIO.FALLING, callback=lambda x: end_switch_callback(switchPin_1,MOTOR), bouncetime=1)  # Event detection for end switch 1
-GPIO.add_event_detect(switchPin_2, GPIO.FALLING, callback=lambda x: end_switch_callback(switchPin_2,MOTOR), bouncetime=1)  # Event detection for end switch 2
+# END SWITCHES: Convert to pigpio-based (example for one switch)
+def end_switch_callback(gpio, level, tick):
+    MOTOR.stop_motor()
+    print(f"End switch triggered on pin {gpio}. Motor stopped.")
 
-# def home_cart(MotorControl, ReadMotorEncoder):
-#     while True:
-#         # Move the motor until the end switch is triggered
-#         MotorControl.move_stepper(100, 0.01, -1)  # Move the motor in reverse direction
-#         time.sleep(0.01)  # Sleep for a short duration to avoid excessive CPU usage
-#         if GPIO.input(switchPin_1) == 0 or GPIO.input(switchPin_2) == 0:
-#             # If the end switch is triggered, stop the motor
-#             MotorControl.stop_motor()
-#             ReadMotorEncoder.steps = 0  # Reset the motor encoder steps
-#             MotorControl.move_stepper(100,0.01,1)  # Reset the motor position
-#             break
-#     while GPIO.input(switchPin_1) == 1 or GPIO.input(switchPin_2) == 1:
-#         MotorControl.move_stepper(100, 0.01, 1)  # Move the motor in direction until the end switch is triggered
-#         time.sleep(0.01)  # Sleep for a short duration to avoid excessive CPU usage
-#         if GPIO.input(switchPin_1) == 0 or GPIO.input(switchPin_2) == 0:
-#             MotorControl.stop_motor()  # Stop the motor if the end switch is triggered
-#             MotorControl.move_stepper(ReadMotorEncoder.steps/2, 0.01, -1)  # Move the motor in reverse direction to reset the position
-#             ReadMotorEncoder.steps = 0  # Reset the motor encoder steps
-#             break
-# home_cart(MOTOR, ENCODER_M)  # Home the cart by moving the motor until the end switch is triggered
+# Set up end switches with pigpio interrupts (using pull-ups if normally open)
+for switch_pin in [switchPin_1, switchPin_2]:
+    pi.set_mode(switch_pin, pigpio.INPUT)
+    pi.set_pull_up_down(switch_pin, pigpio.PUD_UP)
+    pi.callback(switch_pin, pigpio.FALLING_EDGE, end_switch_callback)
 
-# time Costants
-lastTime = time.time()  # Last time for the first pendulum
-lastTime_2 = time.time()  # Last time for the second pendulum
-lastTime_m = time.time()  # Last time for the motor
-lastSteps = ENCODER.steps  # Last steps for the first pendulum
-lastSteps_2 = ENCODER_2.steps  # Last steps for the second pendulum
-lastSteps_m = ENCODER_M.steps  # Last steps for the motor
+# Initial time/step snapshots
+lastTime = time.time()
+lastTime_2 = time.time()
+lastTime_m = time.time()
+lastSteps = ENCODER.steps
+lastSteps_2 = ENCODER_2.steps
+lastSteps_m = ENCODER_M.steps
 
+# Data arrays
+sensorTimeArray = []
+stepCalculationTimeArray = []
+movementTimeArray = []
 
-
-sensorTimeArray = []  # Array to store sensor data reading times
-controlOutputCalculationTimeArray = []  # Array to store control calculation times
-stepCalculationTimeArray = []  # Array to store step calculation times
-movementTimeArray = []  # Array to store movement times
-n = 0
 # Main loop
-while True:
-    try:
-        sensorData, lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m,sensorTime = read_sensors_data(lastTime,lastTime_2,lastTime_m,lastSteps, lastSteps_2,lastSteps_m)  # Read sensor data
-        print('Sensor Data:',sensorData)
-        u = - K @ sensorData  # Compute control output u
-        print('Control Output:', u)
+try:
+    while True:
+        try:
+            # 1. Sensor Reading
+            sensorData, lastTime, lastTime_2, lastTime_m, lastSteps, lastSteps_2, lastSteps_m, sensorTime = read_sensors_data(
+                lastTime, lastTime_2, lastTime_m, lastSteps, lastSteps_2, lastSteps_m)
+            print('Sensor Data:', sensorData)
 
-        steps, stepPeriod,stepCalculationTime, direction = MOTOR.calculate_steps(u)  # Calculate motor steps and period
-        print('steps:', steps, 'step periiod:',stepPeriod)
-        movementTime = MOTOR.move_stepper(steps, stepPeriod, np.sign(direction)*1,timeout=0.02)  # Move the motor in the direction of control output
-        sensorTimeArray.append(sensorTime)
-        # controlOutputCalculationTimeArray.append(controlOutputCalculationTime)
-        stepCalculationTimeArray.append(stepCalculationTime)
-        movementTimeArray.append(movementTime)
+            # 2. Control Law
+            u = - K @ sensorData
+            print('Control Output:', u)
 
-    except TimeoutError:
-        print("Function timed out. loop starting over.\n")
-        continue
-    except KeyboardInterrupt:
-        GPIO.cleanup()
-        np.array(sensorTimeArray).tofile('sensorTimeArray.csv', sep=',')
-        np.array(controlOutputCalculationTimeArray).tofile('controlOutputCalculationTimeArray.csv', sep=',')
-        np.array(stepCalculationTimeArray).tofile('stepCalculationTimeArray.csv', sep=',')
-        np.array(movementTimeArray).tofile('movementTimeArray.csv', sep=',')
-        print('Program terminated by user. Data saved to CSV files.')  
-        break
+            # 3. Compute Steps and Frequency (updated for pigpio)
+            steps, freq, direction = MOTOR.calculate_steps(float(u))
+            print('steps:', steps, 'step freq:', freq)
 
-    except Exception as e:
-       print('An error occurred:', str(e)) 
-       GPIO.cleanup()
-       np.array(sensorTimeArray).tofile('sensorTimeArray.csv', sep=',')
-       np.array(controlOutputCalculationTimeArray).tofile('controlOutputCalculationTimeArray.csv', sep=',')
-       np.array(stepCalculationTimeArray).tofile('stepCalculationTimeArray.csv', sep=',')
-       np.array(movementTimeArray).tofile('movementTimeArray.csv', sep=',')
-       print('Data saved to CSV files.')
-       print('Program terminated due to an error.')
-       break
+            # 4. Move Motor (hardware waveform, non-blocking)
+            startMovement = time.perf_counter()
+            MOTOR.move_stepper(steps, freq, np.sign(direction)*1)
+            # Wait for move to end or sample timeout
+            move_timeout = t_s
+            time_waited = 0
+            while MOTOR.is_moving():
+                time.sleep(0.001)
+                time_waited += 0.001
+                if time_waited > move_timeout:
+                    print("Move timeout - forcibly stopping motor.")
+                    MOTOR.stop_motor()
+                    break
+            movementTime = time.perf_counter() - startMovement
+
+            # 5. Store timing data
+            sensorTimeArray.append(sensorTime)
+            stepCalculationTimeArray.append(move_timeout)
+            movementTimeArray.append(movementTime)
+
+        except KeyboardInterrupt:
+            print("User interrupted - exiting safely.")
+            break
+
+        except Exception as e:
+            print('An error occurred:', str(e))
+            break
+
+finally:
+    # Save data and cleanup, always runs when loop exits
+    np.array(sensorTimeArray).tofile('sensorTimeArray.csv', sep=',')
+    np.array(stepCalculationTimeArray).tofile('stepCalculationTimeArray.csv', sep=',')
+    np.array(movementTimeArray).tofile('movementTimeArray.csv', sep=',')
+    ENCODER.cleanup()
+    ENCODER_2.cleanup()
+    ENCODER_M.cleanup()
+    MOTOR.stop_motor()
+    pi.stop()
+    print('All resources cleaned up and data saved.')
