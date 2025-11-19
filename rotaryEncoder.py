@@ -4,14 +4,14 @@ import numpy as np
 from pigpio_encoder.rotary import Rotary
 
 class ReadRotaryEncoder:
-    def __init__(self, clk_gpio, dt_gpio, pi, id):
-        self.pi = pi
+    def __init__(self, clk_gpio, dt_gpio,id ):
+        
         self.steps = 0
         self._step_offset = 0
         self.last_time = time.time()
         self.last_steps = 0
         self.id = id
-        self.rotary = Rotary(clk_gpio=clk_gpio, dt_gpio=dt_gpio, pi = self.pi)
+        self.rotary = Rotary(clk_gpio=clk_gpio, dt_gpio=dt_gpio,sw_gpio =None)
         self.rotary.setup_rotary(rotary_callback=self._rotary_callback)
 
     def _rotary_callback(self, counter):

@@ -21,8 +21,8 @@ if not pi.connected:
 
 try:
     # Create encoder instances with pigpio
-    ENCODER = ReadRotaryEncoder(clk_gpio=motor_encoder_A, dt_gpio=motor_encoder_B, pi=pi, id="arm1")
-    ENCODER_2 = ReadRotaryEncoder(clk_gpio=encoder_a, dt_gpio=encoder_b, pi=pi, id="arm2")
+    ENCODER = ReadRotaryEncoder(clk_gpio=motor_encoder_A, dt_gpio=motor_encoder_B, id="arm1")
+    ENCODER_2 = ReadRotaryEncoder(clk_gpio=encoder_a, dt_gpio=encoder_b, id="arm2")
     
     # Calibrate the encoders to their initial positions
     # Arm 1: Set to pi radians (hanging down)
