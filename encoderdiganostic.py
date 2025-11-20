@@ -3,14 +3,14 @@ import numpy as np
 import time
 from rotaryEncoder import PigpioQuadratureEncoder
 CPR = 625  # As you discovered
-
+CPR_2 = 625
 pi = pigpio.pi()
 if not pi.connected:
     raise RuntimeError("Start pigpiod: sudo pigpiod")
 
 
-enc_arm1 = PigpioQuadratureEncoder(pi, gpio_a=20, gpio_b=21, cpr=CPR, name="Arm1")
-enc_arm2 = PigpioQuadratureEncoder(pi, gpio_a=16, gpio_b=12, cpr=CPR, name="Arm2")
+enc_arm1 = PigpioQuadratureEncoder(pi, gpio_a=21, gpio_b=20, cpr=CPR, name="Arm1")
+enc_arm2 = PigpioQuadratureEncoder(pi, gpio_a=16, gpio_b=12, cpr=CPR_2, name="Arm2")
 
 try:
     print("=" * 60)
