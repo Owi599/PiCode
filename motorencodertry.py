@@ -1,6 +1,5 @@
 import pigpio
 import time
-from motorEncoder import ReadMotorEncoder
 from rotaryEncoder import ReadRotaryEncoder
 
 # GPIO pin assignments
@@ -20,39 +19,33 @@ if not pi.connected:
     exit()
 
 try:
-    # Create encoder instances with pigpio
-    ENCODER = ReadRotaryEncoder(clk_gpio=motor_encoder_A, dt_gpio=motor_encoder_B, id="arm1")
-    ENCODER_2 = ReadRotaryEncoder(clk_gpio=encoder_a, dt_gpio=encoder_b, id="arm2")
+    # Create encoder instances with pi parameter
+    ENCODER = ReadRotaryEncoder(clk_gpio=motor_encoder_A, dt_gpio=motor_encoder_B, pi=pi, id="arm1")
+    ENCODER_2 = ReadRotaryEncoder(clk_gpio=encoder_a, dt_gpio=encoder_b, pi=pi, id="arm2")
     
     # Calibrate the encoders to their initial positions
-    # Arm 1: Set to pi radians (hanging down)
-    ENCODER.calibrate(cpr=CPR, target_angle=3.14159)  # pi radians
-    
-    # Arm 2: Set to 0 radians (aligned with arm 1)
-    ENCODER_2.calibrate(cpr=CPR, target_angle=0)
+    ENCODER.calibrate(cpr=CPR, target_angle=3.14159)  # pi radians (hanging down)
+    ENCODER_2.calibrate(cpr=CPR, target_angle=0)      # 0 radians (aligned)
     
     print("Encoders calibrated. Starting position readings...")
     time.sleep(1)
     
     # Main loop
     while True:
-        # Read positions (already wrapped to [-pi, pi])
         position = ENCODER.read_position(CPR)
         position_2 = ENCODER_2.read_position(CPR)
         
-        # Read velocities
         velocity, _, _ = ENCODER.read_velocity(CPR)
         velocity_2, _, _ = ENCODER_2.read_velocity(CPR)
         
         print(f"Arm1 - Pos: {position:+.2f} rad, Vel: {velocity:+.2f} rad/s | "
               f"Arm2 - Pos: {position_2:+.2f} rad, Vel: {velocity_2:+.2f} rad/s")
         
-        time.sleep(0.02)  # 20ms sampling period
+        time.sleep(0.02)
 
 except KeyboardInterrupt:
     print("\nProgram stopped by user.")
 finally:
-    # Clean up resources
     if 'ENCODER' in locals():
         ENCODER.cleanup()
     if 'ENCODER_2' in locals():
