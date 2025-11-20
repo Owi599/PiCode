@@ -20,7 +20,6 @@ class PigpioQuadratureEncoder:
         self.name = name
 
         self.steps = 0
-        self.ref_steps = 0  # Set during calibration
         self.last_steps = 0
         self.last_time = time.time()
 
@@ -62,19 +61,23 @@ class PigpioQuadratureEncoder:
 
     def calibrate(self, target_angle):
         """
-        Set current physical position to target_angle (in radians).
-        Example: calibrate(np.pi) sets current position as π radians.
+        Set the step count to represent the target_angle.
+        Upright (0 rad) = 0 steps
+        Down (π rad) = cpr/2 steps (half revolution)
+        
+        Example: calibrate(np.pi) sets steps = 2500 (for cpr=5000)
         """
-        self.ref_steps = self.steps - int(target_angle * self.cpr / (2.0 * np.pi))
+        self.steps = int(target_angle * self.cpr / (2.0 * np.pi))
         self.last_steps = self.steps
         print(f"[{self.name}] Calibrated to {target_angle:.3f} rad ({np.degrees(target_angle):.1f}°)")
+        print(f"  Steps set to: {self.steps}")
 
     def read_position(self):
         """
         Returns angular position in [-π, π] radians.
+        Directly converts steps to angle: angle = 2π * steps / cpr
         """
-        rel_steps = self.steps - self.ref_steps
-        angle = (2.0 * np.pi * rel_steps) / self.cpr
+        angle = (2.0 * np.pi * self.steps) / self.cpr
         
         # Wrap to [-π, π]
         angle = np.fmod(angle, 2.0 * np.pi)

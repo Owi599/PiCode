@@ -2,8 +2,7 @@ import pigpio
 import numpy as np
 import time
 from rotaryEncoder import PigpioQuadratureEncoder
-
-CPR = 1250  # Cycles per revolution (4x decoding handled internally)
+CPR = 1250  # Cycles per revolution
 
 pi = pigpio.pi()
 if not pi.connected:
@@ -14,16 +13,17 @@ enc_arm1 = PigpioQuadratureEncoder(pi, gpio_a=20, gpio_b=21, cpr=CPR, name="Arm1
 enc_arm2 = PigpioQuadratureEncoder(pi, gpio_a=16, gpio_b=12, cpr=CPR, name="Arm2")
 
 try:
-    # Calibration
-    print("Place Arm 1 hanging DOWN.")
-    input("Press Enter to calibrate Arm1 to π...")
-    enc_arm1.calibrate(np.pi)
+    # Calibration - directly set step counts
+    print("Place Arm 1 hanging DOWN (this is π radians).")
+    input("Press Enter to calibrate...")
+    enc_arm1.calibrate(np.pi)  # Sets steps = 2500
     
-    print("Place Arm 2 aligned with Arm 1.")
-    input("Press Enter to calibrate Arm2 to 0...")
-    enc_arm2.calibrate(0.0)
+    print("\nPlace Arm 2 aligned with Arm 1 (this is 0 radians).")
+    input("Press Enter to calibrate...")
+    enc_arm2.calibrate(0.0)  # Sets steps = 0
     
-    print("\nMeasuring (Ctrl+C to stop)...\n")
+    print("\nStarting measurements (Ctrl+C to stop)...")
+    print("Expected: Arm1 down=+3.14 rad, up=0.00 rad\n")
     time.sleep(1)
     
     # Main loop
