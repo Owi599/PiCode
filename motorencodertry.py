@@ -2,54 +2,43 @@ import pigpio
 import time
 from rotaryEncoder import ReadRotaryEncoder
 
-# GPIO pin assignments
-motor_encoder_A = 20
-motor_encoder_B = 21
-encoder_a = 16
-encoder_b = 12
-
-# Encoder parameters
-PPR = 1250  # Pulses Per Revolution
-CPR = PPR * 4  # Counts Per Revolution (4x quadrature decoding)
-
-# Connect to pigpio daemon
 pi = pigpio.pi()
 if not pi.connected:
-    print("Could not connect to pigpio daemon. Did you run 'sudo pigpiod'?")
+    print("Could not connect to pigpio daemon.")
     exit()
 
 try:
-    # Create encoder instances with pi parameter
-    ENCODER = ReadRotaryEncoder(clk_gpio=motor_encoder_A, dt_gpio=motor_encoder_B, pi=pi, id="arm1")
-    ENCODER_2 = ReadRotaryEncoder(clk_gpio=encoder_a, dt_gpio=encoder_b, pi=pi, id="arm2")
+    # Create encoders
+    ENCODER = ReadRotaryEncoder(clk_gpio=20, dt_gpio=21, pi=pi, id="arm1")
+    ENCODER_2 = ReadRotaryEncoder(clk_gpio=16, dt_gpio=12, pi=pi, id="arm2")
     
-    # Calibrate the encoders to their initial positions
-    ENCODER.calibrate(cpr=CPR, target_angle=3.14159)  # pi radians (hanging down)
-    ENCODER_2.calibrate(cpr=CPR, target_angle=0)      # 0 radians (aligned)
+    PPR = 1250
+    CPR = PPR * 4
     
-    print("Encoders calibrated. Starting position readings...")
+    # Calibrate: Arm 1 down = π, Arm 2 aligned = 0
+    input("Place Arm 1 hanging DOWN and press Enter...")
+    ENCODER.calibrate(cpr=CPR, target_angle=np.pi)
+    
+    input("Place Arm 2 aligned with Arm 1 and press Enter...")
+    ENCODER_2.calibrate(cpr=CPR, target_angle=0)
+    
+    print("\nCalibration complete! Starting measurements...\n")
     time.sleep(1)
     
-    # Main loop
     while True:
-        position = ENCODER.read_position(CPR)
-        position_2 = ENCODER_2.read_position(CPR)
+        pos1 = ENCODER.read_position(CPR)
+        pos2 = ENCODER_2.read_position(CPR)
+        vel1, _, _ = ENCODER.read_velocity(CPR)
+        vel2, _, _ = ENCODER_2.read_velocity(CPR)
         
-        velocity, _, _ = ENCODER.read_velocity(CPR)
-        velocity_2, _, _ = ENCODER_2.read_velocity(CPR)
-        
-        print(f"Arm1 - Pos: {position:+.2f} rad, Vel: {velocity:+.2f} rad/s | "
-              f"Arm2 - Pos: {position_2:+.2f} rad, Vel: {velocity_2:+.2f} rad/s")
+        print(f"Arm1: {pos1:+.3f} rad ({np.degrees(pos1):+6.1f}°) | "
+              f"Arm2: {pos2:+.3f} rad ({np.degrees(pos2):+6.1f}°)")
         
         time.sleep(0.02)
 
 except KeyboardInterrupt:
-    print("\nProgram stopped by user.")
+    print("\nStopped.")
 finally:
-    if 'ENCODER' in locals():
-        ENCODER.cleanup()
-    if 'ENCODER_2' in locals():
-        ENCODER_2.cleanup()
-    if pi.connected:
-        pi.stop()
-    print("Cleanup complete.")
+    ENCODER.cleanup()
+    ENCODER_2.cleanup()
+    pi.stop()

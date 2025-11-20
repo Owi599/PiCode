@@ -2,10 +2,10 @@ import pigpio
 import time
 import numpy as np
 
-class ReadMotorEncoder:
-    def __init__(self, clk_gpio, dt_gpio, pi, wheel_radius=0.0125):
+class ReadRotaryEncoder:
+    def __init__(self, clk_gpio, dt_gpio, pi, id="encoder"):
         """
-        Initializes the encoder for measuring linear motion using direct pigpio callbacks.
+        Initializes the encoder for measuring angular motion using direct pigpio callbacks.
         """
         if not pi.connected:
             raise RuntimeError("pigpio not connected")
@@ -14,9 +14,10 @@ class ReadMotorEncoder:
         self.clk_gpio = clk_gpio
         self.dt_gpio = dt_gpio
         self.steps = 0
-        self.wheel_radius = wheel_radius
+        self.calibration_offset = 0  # NEW: Store calibration offset in steps
         self.last_time = time.time()
         self.last_steps = 0
+        self.id = id
         
         self.levA = 0
         self.levB = 0
@@ -56,26 +57,39 @@ class ReadMotorEncoder:
                 else:
                     self.steps += 1
 
-    def calibrate(self):
+    def calibrate(self, cpr, target_angle):
         """
-        Calibrates the encoder, setting the current physical position to be zero meters.
+        Calibrates the encoder by storing an offset.
+        The current physical position will correspond to target_angle.
+        
+        This works by: angle = (steps - offset) * (2π / cpr)
+        We want: target_angle = (current_steps - offset) * (2π / cpr)
+        Solving for offset: offset = current_steps - (target_angle * cpr) / (2π)
         """
-        self.steps = 0
-        self.last_steps = 0
-        print("Cart position calibrated to 0 meters.")
+        self.calibration_offset = self.steps - int((target_angle * cpr) / (2 * np.pi))
+        self.last_steps = self.steps
+        print(f"Encoder '{self.id}' calibrated. Current position set to {target_angle:.2f} rad.")
+        print(f"  Raw steps: {self.steps}, Calibration offset: {self.calibration_offset}")
 
     def read_position(self, cpr):
         """
-        Calculates the linear position of the cart in meters.
+        Calculates the angular position and wraps it to the [-pi, pi] range.
+        Uses the calibration offset so the position is relative to the calibrated zero.
         """
-        circumference = 2 * np.pi * self.wheel_radius
-        distance_per_step = circumference / cpr
-        position = self.steps * distance_per_step
-        return position
+        # Calculate angle using offset
+        calibrated_steps = self.steps - self.calibration_offset
+        raw_angle = (2 * np.pi / cpr) * calibrated_steps
+        
+        # Wrap to [-pi, pi] using proper modulo arithmetic
+        # This ensures the angle stays in the correct range after multiple revolutions
+        wrapped_angle = np.arctan2(np.sin(raw_angle), np.cos(raw_angle))
+        
+        return wrapped_angle
 
     def read_velocity(self, cpr):
         """
-        Calculates the linear velocity of the cart in meters per second.
+        Calculates angular velocity from the raw, unwrapped step count.
+        Velocity doesn't need wrapping - it's a rate of change.
         """
         current_time = time.time()
         current_steps = self.steps
@@ -86,14 +100,12 @@ class ReadMotorEncoder:
         if time_diff < 0.0001:
             return 0, current_time, current_steps
 
-        circumference = 2 * np.pi * self.wheel_radius
-        distance_per_step = circumference / cpr
-        velocity = (step_diff / time_diff) * distance_per_step
+        angular_velocity = (step_diff / time_diff) * (2 * np.pi / cpr)
 
         self.last_time = current_time
         self.last_steps = current_steps
 
-        return velocity, current_time, current_steps
+        return angular_velocity, current_time, current_steps
 
     def cleanup(self):
         """Cleans up the callbacks."""
