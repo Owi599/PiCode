@@ -1,93 +1,59 @@
 import pigpio
-import time
 import numpy as np
-from rotaryEncoder import ReadRotaryEncoder
+import time
+from encoder_class import PigpioQuadratureEncoder   # name as you save it
 
-# Connect to pigpio
+PPR = 1250
+CPR = PPR * 4    # 5000
+
 pi = pigpio.pi()
 if not pi.connected:
-    print("ERROR: Could not connect to pigpio daemon.")
-    print("Please run: sudo pigpiod")
-    exit()
+    raise RuntimeError("run: sudo pigpiod")
 
-print("Connected to pigpio daemon successfully.\n")
+# GPIO assignment
+ARM1_A = 20
+ARM1_B = 21
+ARM2_A = 16
+ARM2_B = 12
 
-# GPIO pins
-ARM1_CLK = 20
-ARM1_DT = 21
-ARM2_CLK = 16
-ARM2_DT = 12
-
-# Encoder parameters
-PPR = 1250
-CPR = PPR * 4  # 5000 counts per revolution with 4x decoding
-
-print(f"Encoder Configuration:")
-print(f"  PPR (Pulses Per Revolution): {PPR}")
-print(f"  CPR (Counts Per Revolution with 4x decoding): {CPR}")
-print(f"  Resolution: {360/CPR:.3f} degrees per count\n")
+enc_arm1 = PigpioQuadratureEncoder(pi, ARM1_A, ARM1_B, CPR, name="Arm1")
+enc_arm2 = PigpioQuadratureEncoder(pi, ARM2_A, ARM2_B, CPR, name="Arm2")
 
 try:
-    # Create encoder objects
-    ENCODER_1 = ReadRotaryEncoder(clk_gpio=ARM1_CLK, dt_gpio=ARM1_DT, pi=pi, id="Arm1_Lower")
-    ENCODER_2 = ReadRotaryEncoder(clk_gpio=ARM2_CLK, dt_gpio=ARM2_DT, pi=pi, id="Arm2_Upper")
-    
-    print("=" * 60)
-    print("CALIBRATION PROCEDURE")
-    print("=" * 60)
-    
-    # Calibrate Arm 1 (lower arm)
-    print("\n[ARM 1 - Lower Arm]")
-    print("Position the lower arm HANGING STRAIGHT DOWN.")
-    input("Press Enter when ready...")
-    ENCODER_1.calibrate(cpr=CPR, target_angle=np.pi)
-    
-    # Calibrate Arm 2 (upper arm)
-    print("\n[ARM 2 - Upper Arm]")
-    print("Position the upper arm ALIGNED WITH the lower arm (both hanging down).")
-    input("Press Enter when ready...")
-    ENCODER_2.calibrate(cpr=CPR, target_angle=0)
-    
-    print("\n" + "=" * 60)
-    print("CALIBRATION COMPLETE - Starting measurements")
-    print("=" * 60)
-    print("\nExpected readings:")
-    print("  Arm 1 down = +3.14 rad (+180°), up = 0.00 rad (0°)")
-    print("  Arm 2 aligned with Arm 1 = 0.00 rad (0°)")
-    print("\nPress Ctrl+C to stop\n")
-    
-    time.sleep(2)
-    
-    # Main measurement loop
-    count = 0
+    # --- Calibration phase ---
+    print("Put ARM 1 (lower) hanging DOWN. This should represent +pi.")
+    input("Press Enter to calibrate Arm1 to +pi...")
+
+    # Down = +π for arm 1
+    enc_arm1.calibrate_to_angle(np.pi)
+
+    print("Put ARM 2 (upper) ALIGNED with ARM 1 (both hanging down).")
+    input("Press Enter to calibrate Arm2 to 0...")
+
+    # Aligned with arm1 at down = 0 for arm 2
+    enc_arm2.calibrate_to_angle(0.0)
+
+    print("\nCalibrated. Now reading angles in [-pi, pi]. Ctrl+C to stop.\n")
+
     while True:
-        pos1 = ENCODER_1.read_position(CPR)
-        pos2 = ENCODER_2.read_position(CPR)
-        vel1, _, _ = ENCODER_1.read_velocity(CPR)
-        vel2, _, _ = ENCODER_2.read_velocity(CPR)
-        
-        # Print every 10 cycles (0.2 seconds) to avoid screen clutter
-        if count % 10 == 0:
-            print(f"Arm1: {pos1:+.3f} rad ({np.degrees(pos1):+7.2f}°) {vel1:+.2f} rad/s | "
-                  f"Arm2: {pos2:+.3f} rad ({np.degrees(pos2):+7.2f}°) {vel2:+.2f} rad/s")
-        
-        count += 1
+        theta1 = enc_arm1.get_angle()    # [-π, π], down ≈ +π, up ≈ 0
+        theta2 = enc_arm2.get_angle()    # [-π, π], aligned down ≈ 0
+
+        omega1 = enc_arm1.get_velocity()
+        omega2 = enc_arm2.get_velocity()
+
+        print(
+            f"Arm1: θ={theta1:+.3f} rad ({np.degrees(theta1):+7.2f}°), "
+            f"ω={omega1:+.2f} rad/s | "
+            f"Arm2: θ={theta2:+.3f} rad ({np.degrees(theta2):+7.2f}°), "
+            f"ω={omega2:+.2f} rad/s",
+            end="\r",
+        )
         time.sleep(0.02)
 
 except KeyboardInterrupt:
-    print("\n\nProgram stopped by user.")
-    
-except Exception as e:
-    print(f"\nERROR: {e}")
-    import traceback
-    traceback.print_exc()
-    
+    print("\nStopped by user.")
 finally:
-    print("\nCleaning up...")
-    if 'ENCODER_1' in locals():
-        ENCODER_1.cleanup()
-    if 'ENCODER_2' in locals():
-        ENCODER_2.cleanup()
-    if pi.connected:
-        pi.stop()
-    print("Cleanup complete.")
+    enc_arm1.cleanup()
+    enc_arm2.cleanup()
+    pi.stop()

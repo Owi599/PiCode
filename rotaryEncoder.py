@@ -2,109 +2,108 @@ import pigpio
 import time
 import numpy as np
 
-class ReadRotaryEncoder:
-    def __init__(self, clk_gpio, dt_gpio, pi, id="encoder"):
-        """
-        Initializes the encoder for measuring angular motion using direct pigpio callbacks.
-        """
+class PigpioQuadratureEncoder:
+    def __init__(self, pi, gpio_a, gpio_b, cpr, name="enc"):
         if not pi.connected:
             raise RuntimeError("pigpio not connected")
-            
+
         self.pi = pi
-        self.clk_gpio = clk_gpio
-        self.dt_gpio = dt_gpio
-        self.steps = 0
-        self.zero_steps = 0  # Steps at calibration point
-        self.last_time = time.time()
+        self.gpio_a = gpio_a
+        self.gpio_b = gpio_b
+        self.cpr = cpr              # counts per mechanical revolution (5000)
+        self.name = name
+
+        self.steps = 0              # raw count
+        self.ref_steps = 0          # reference at calibration
         self.last_steps = 0
-        self.id = id
-        
-        self.levA = 0
-        self.levB = 0
-        self.lastGpio = None
+        self.last_time = time.time()
 
-        # Set up pins as inputs with pull-ups
-        self.pi.set_mode(clk_gpio, pigpio.INPUT)
-        self.pi.set_mode(dt_gpio, pigpio.INPUT)
-        self.pi.set_pull_up_down(clk_gpio, pigpio.PUD_UP)
-        self.pi.set_pull_up_down(dt_gpio, pigpio.PUD_UP)
+        # internal state for decoding
+        self.lev_a = 0
+        self.lev_b = 0
+        self.last_gpio = None
 
-        # Set up callbacks for both edges on both pins
-        self.cbA = self.pi.callback(clk_gpio, pigpio.EITHER_EDGE, self._pulse)
-        self.cbB = self.pi.callback(dt_gpio, pigpio.EITHER_EDGE, self._pulse)
+        # configure pins
+        self.pi.set_mode(gpio_a, pigpio.INPUT)
+        self.pi.set_mode(gpio_b, pigpio.INPUT)
+        self.pi.set_pull_up_down(gpio_a, pigpio.PUD_UP)
+        self.pi.set_pull_up_down(gpio_b, pigpio.PUD_UP)
+
+        # callbacks: both edges, both channels
+        self.cb_a = self.pi.callback(gpio_a, pigpio.EITHER_EDGE, self._pulse)
+        self.cb_b = self.pi.callback(gpio_b, pigpio.EITHER_EDGE, self._pulse)
 
     def _pulse(self, gpio, level, tick):
-        """
-        Callback for quadrature decoding.
-        This implements 4x decoding (counts on all edges of both channels).
-        """
-        if gpio == self.clk_gpio:
-            self.levA = level
+        # quadrature 4x decode
+        if gpio == self.gpio_a:
+            self.lev_a = level
         else:
-            self.levB = level
+            self.lev_b = level
 
-        if gpio != self.lastGpio:  # Debounce
-            self.lastGpio = gpio
+        if gpio != self.last_gpio:    # simple debounce
+            self.last_gpio = gpio
 
-            if gpio == self.clk_gpio and level == 1:
-                if self.levB == 1:
+            if gpio == self.gpio_a and level == 1:
+                if self.lev_b == 1:
                     self.steps += 1
                 else:
                     self.steps -= 1
-            elif gpio == self.dt_gpio and level == 1:
-                if self.levA == 1:
+            elif gpio == self.gpio_b and level == 1:
+                if self.lev_a == 1:
                     self.steps -= 1
                 else:
                     self.steps += 1
 
-    def calibrate(self, cpr, target_angle):
+    # --- calibration and reading API ---
+
+    def calibrate_to_angle(self, target_angle_rad):
         """
-        Sets the zero reference point.
-        Current position will be interpreted as target_angle.
+        Set current physical position to correspond to target_angle_rad.
+        For this encoder object, all future angles will be relative to this calibration.
         """
-        # Store current steps as the reference for target_angle
-        self.zero_steps = self.steps - int((target_angle * cpr) / (2 * np.pi))
+        # we want: theta = 2π*(steps - ref_steps)/cpr
+        # at calibration: target_angle = 2π*(steps_now - ref_steps)/cpr
+        # => ref_steps = steps_now - target_angle*cpr/(2π)
+        self.ref_steps = self.steps - int(target_angle_rad * self.cpr / (2.0 * np.pi))
         self.last_steps = self.steps
-        print(f"Encoder '{self.id}' calibrated.")
-        print(f"  Current physical position = {target_angle:.2f} rad")
-        print(f"  Raw steps = {self.steps}, Zero reference = {self.zero_steps}")
+        print(f"[{self.name}] calibrated: target_angle = {target_angle_rad:.3f} rad")
 
-    def read_position(self, cpr):
+    def get_angle(self):
         """
-        Returns angular position in [-pi, pi] range.
+        Return wrapped angle in [-π, π] relative to the calibration.
         """
-        # Steps relative to zero reference
-        relative_steps = self.steps - self.zero_steps
-        
-        # Convert to radians
-        angle = (2.0 * np.pi * relative_steps) / cpr
-        
-        # Wrap to [-pi, pi] using atan2 method (most reliable)
-        angle_wrapped = np.arctan2(np.sin(angle), np.cos(angle))
-        
-        return angle_wrapped
+        rel_steps = self.steps - self.ref_steps
+        angle = 2.0 * np.pi * rel_steps / self.cpr
 
-    def read_velocity(self, cpr):
+        # wrap to [-π, π]
+        angle = np.fmod(angle, 2.0 * np.pi)
+        if angle > np.pi:
+            angle -= 2.0 * np.pi
+        elif angle < -np.pi:
+            angle += 2.0 * np.pi
+
+        return angle
+
+    def get_velocity(self):
         """
-        Calculates angular velocity in rad/s.
+        Angular velocity in rad/s, based on raw steps (no wrapping).
         """
-        current_time = time.time()
-        current_steps = self.steps
+        now = time.time()
+        steps_now = self.steps
 
-        time_diff = current_time - self.last_time
-        step_diff = current_steps - self.last_steps
+        dt = now - self.last_time
+        dsteps = steps_now - self.last_steps
 
-        if time_diff < 0.0001:
-            return 0, current_time, current_steps
+        if dt <= 0.0:
+            return 0.0
 
-        angular_velocity = (step_diff / time_diff) * (2.0 * np.pi / cpr)
+        vel = (dsteps / dt) * (2.0 * np.pi / self.cpr)
 
-        self.last_time = current_time
-        self.last_steps = current_steps
+        self.last_time = now
+        self.last_steps = steps_now
 
-        return angular_velocity, current_time, current_steps
+        return vel
 
     def cleanup(self):
-        """Cleans up the callbacks."""
-        self.cbA.cancel()
-        self.cbB.cancel()
+        self.cb_a.cancel()
+        self.cb_b.cancel()
