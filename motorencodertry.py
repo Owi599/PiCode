@@ -1,58 +1,46 @@
 import pigpio
 import numpy as np
 import time
-from encoder_class import PigpioQuadratureEncoder   # name as you save it
+from rotaryEncoder import PigpioQuadratureEncoder
 
-PPR = 1250
-CPR = PPR * 4    # 5000
+CPR = 1250  # Cycles per revolution (4x decoding handled internally)
 
 pi = pigpio.pi()
 if not pi.connected:
-    raise RuntimeError("run: sudo pigpiod")
+    raise RuntimeError("Start pigpiod: sudo pigpiod")
 
-# GPIO assignment
-ARM1_A = 20
-ARM1_B = 21
-ARM2_A = 16
-ARM2_B = 12
-
-enc_arm1 = PigpioQuadratureEncoder(pi, ARM1_A, ARM1_B, CPR, name="Arm1")
-enc_arm2 = PigpioQuadratureEncoder(pi, ARM2_A, ARM2_B, CPR, name="Arm2")
+# Create encoders
+enc_arm1 = PigpioQuadratureEncoder(pi, gpio_a=20, gpio_b=21, cpr=CPR, name="Arm1")
+enc_arm2 = PigpioQuadratureEncoder(pi, gpio_a=16, gpio_b=12, cpr=CPR, name="Arm2")
 
 try:
-    # --- Calibration phase ---
-    print("Put ARM 1 (lower) hanging DOWN. This should represent +pi.")
-    input("Press Enter to calibrate Arm1 to +pi...")
-
-    # Down = +π for arm 1
-    enc_arm1.calibrate_to_angle(np.pi)
-
-    print("Put ARM 2 (upper) ALIGNED with ARM 1 (both hanging down).")
+    # Calibration
+    print("Place Arm 1 hanging DOWN.")
+    input("Press Enter to calibrate Arm1 to π...")
+    enc_arm1.calibrate(np.pi)
+    
+    print("Place Arm 2 aligned with Arm 1.")
     input("Press Enter to calibrate Arm2 to 0...")
-
-    # Aligned with arm1 at down = 0 for arm 2
-    enc_arm2.calibrate_to_angle(0.0)
-
-    print("\nCalibrated. Now reading angles in [-pi, pi]. Ctrl+C to stop.\n")
-
+    enc_arm2.calibrate(0.0)
+    
+    print("\nMeasuring (Ctrl+C to stop)...\n")
+    time.sleep(1)
+    
+    # Main loop
     while True:
-        theta1 = enc_arm1.get_angle()    # [-π, π], down ≈ +π, up ≈ 0
-        theta2 = enc_arm2.get_angle()    # [-π, π], aligned down ≈ 0
-
-        omega1 = enc_arm1.get_velocity()
-        omega2 = enc_arm2.get_velocity()
-
-        print(
-            f"Arm1: θ={theta1:+.3f} rad ({np.degrees(theta1):+7.2f}°), "
-            f"ω={omega1:+.2f} rad/s | "
-            f"Arm2: θ={theta2:+.3f} rad ({np.degrees(theta2):+7.2f}°), "
-            f"ω={omega2:+.2f} rad/s",
-            end="\r",
-        )
+        theta1 = enc_arm1.read_position()
+        theta2 = enc_arm2.read_position()
+        omega1 = enc_arm1.read_velocity()
+        omega2 = enc_arm2.read_velocity()
+        
+        print(f"Arm1: {theta1:+.3f} rad ({np.degrees(theta1):+7.2f}°), {omega1:+.2f} rad/s | "
+              f"Arm2: {theta2:+.3f} rad ({np.degrees(theta2):+7.2f}°), {omega2:+.2f} rad/s", 
+              end="\r")
+        
         time.sleep(0.02)
 
 except KeyboardInterrupt:
-    print("\nStopped by user.")
+    print("\n\nStopped.")
 finally:
     enc_arm1.cleanup()
     enc_arm2.cleanup()

@@ -2,45 +2,51 @@ import pigpio
 import time
 import numpy as np
 
+
 class PigpioQuadratureEncoder:
     def __init__(self, pi, gpio_a, gpio_b, cpr, name="enc"):
+        """
+        Pigpio-based quadrature encoder.
+        :param cpr: Cycles Per Revolution (e.g., 1250). 
+                    Internally uses 4x decoding, so effective counts = cpr * 4
+        """
         if not pi.connected:
             raise RuntimeError("pigpio not connected")
 
         self.pi = pi
         self.gpio_a = gpio_a
         self.gpio_b = gpio_b
-        self.cpr = cpr              # counts per mechanical revolution (5000)
+        self.cpr = cpr * 4  # 4x decoding: 1250 cycles → 5000 counts per revolution
         self.name = name
 
-        self.steps = 0              # raw count
-        self.ref_steps = 0          # reference at calibration
+        self.steps = 0
+        self.ref_steps = 0  # Set during calibration
         self.last_steps = 0
         self.last_time = time.time()
 
-        # internal state for decoding
+        # Internal quadrature state
         self.lev_a = 0
         self.lev_b = 0
         self.last_gpio = None
 
-        # configure pins
+        # Configure pins
         self.pi.set_mode(gpio_a, pigpio.INPUT)
         self.pi.set_mode(gpio_b, pigpio.INPUT)
         self.pi.set_pull_up_down(gpio_a, pigpio.PUD_UP)
         self.pi.set_pull_up_down(gpio_b, pigpio.PUD_UP)
 
-        # callbacks: both edges, both channels
+        # Setup callbacks
         self.cb_a = self.pi.callback(gpio_a, pigpio.EITHER_EDGE, self._pulse)
         self.cb_b = self.pi.callback(gpio_b, pigpio.EITHER_EDGE, self._pulse)
 
     def _pulse(self, gpio, level, tick):
-        # quadrature 4x decode
+        """Quadrature 4x decoding."""
         if gpio == self.gpio_a:
             self.lev_a = level
         else:
             self.lev_b = level
 
-        if gpio != self.last_gpio:    # simple debounce
+        if gpio != self.last_gpio:
             self.last_gpio = gpio
 
             if gpio == self.gpio_a and level == 1:
@@ -54,39 +60,34 @@ class PigpioQuadratureEncoder:
                 else:
                     self.steps += 1
 
-    # --- calibration and reading API ---
-
-    def calibrate_to_angle(self, target_angle_rad):
+    def calibrate(self, target_angle):
         """
-        Set current physical position to correspond to target_angle_rad.
-        For this encoder object, all future angles will be relative to this calibration.
+        Set current physical position to target_angle (in radians).
+        Example: calibrate(np.pi) sets current position as π radians.
         """
-        # we want: theta = 2π*(steps - ref_steps)/cpr
-        # at calibration: target_angle = 2π*(steps_now - ref_steps)/cpr
-        # => ref_steps = steps_now - target_angle*cpr/(2π)
-        self.ref_steps = self.steps - int(target_angle_rad * self.cpr / (2.0 * np.pi))
+        self.ref_steps = self.steps - int(target_angle * self.cpr / (2.0 * np.pi))
         self.last_steps = self.steps
-        print(f"[{self.name}] calibrated: target_angle = {target_angle_rad:.3f} rad")
+        print(f"[{self.name}] Calibrated to {target_angle:.3f} rad ({np.degrees(target_angle):.1f}°)")
 
-    def get_angle(self):
+    def read_position(self):
         """
-        Return wrapped angle in [-π, π] relative to the calibration.
+        Returns angular position in [-π, π] radians.
         """
         rel_steps = self.steps - self.ref_steps
-        angle = 2.0 * np.pi * rel_steps / self.cpr
-
-        # wrap to [-π, π]
+        angle = (2.0 * np.pi * rel_steps) / self.cpr
+        
+        # Wrap to [-π, π]
         angle = np.fmod(angle, 2.0 * np.pi)
         if angle > np.pi:
             angle -= 2.0 * np.pi
         elif angle < -np.pi:
             angle += 2.0 * np.pi
-
+        
         return angle
 
-    def get_velocity(self):
+    def read_velocity(self):
         """
-        Angular velocity in rad/s, based on raw steps (no wrapping).
+        Returns angular velocity in rad/s.
         """
         now = time.time()
         steps_now = self.steps
@@ -105,5 +106,6 @@ class PigpioQuadratureEncoder:
         return vel
 
     def cleanup(self):
+        """Cancel callbacks."""
         self.cb_a.cancel()
         self.cb_b.cancel()
