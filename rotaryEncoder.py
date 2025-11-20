@@ -14,6 +14,7 @@ class ReadRotaryEncoder:
         self.clk_gpio = clk_gpio
         self.dt_gpio = dt_gpio
         self.steps = 0
+        self.zero_steps = 0  # Steps at calibration point
         self.last_time = time.time()
         self.last_steps = 0
         self.id = id
@@ -58,24 +59,34 @@ class ReadRotaryEncoder:
 
     def calibrate(self, cpr, target_angle):
         """
-        Calibrates the encoder, setting the current physical position to target_angle.
+        Sets the zero reference point.
+        Current position will be interpreted as target_angle.
         """
-        new_counter_value = int((target_angle * cpr) / (2 * np.pi))
-        self.steps = new_counter_value
-        self.last_steps = new_counter_value
-        print(f"Encoder '{self.id}' calibrated. Current angular position set to {target_angle:.2f} rad (raw step count: {self.steps}).")
+        # Store current steps as the reference for target_angle
+        self.zero_steps = self.steps - int((target_angle * cpr) / (2 * np.pi))
+        self.last_steps = self.steps
+        print(f"Encoder '{self.id}' calibrated.")
+        print(f"  Current physical position = {target_angle:.2f} rad")
+        print(f"  Raw steps = {self.steps}, Zero reference = {self.zero_steps}")
 
     def read_position(self, cpr):
         """
-        Calculates the angular position and wraps it to the [-pi, pi] range.
+        Returns angular position in [-pi, pi] range.
         """
-        raw_angle = (2 * np.pi / cpr) * self.steps
-        wrapped_angle = (raw_angle + np.pi) % (2 * np.pi) - np.pi
-        return wrapped_angle
+        # Steps relative to zero reference
+        relative_steps = self.steps - self.zero_steps
+        
+        # Convert to radians
+        angle = (2.0 * np.pi * relative_steps) / cpr
+        
+        # Wrap to [-pi, pi] using atan2 method (most reliable)
+        angle_wrapped = np.arctan2(np.sin(angle), np.cos(angle))
+        
+        return angle_wrapped
 
     def read_velocity(self, cpr):
         """
-        Calculates angular velocity from the raw, unwrapped step count.
+        Calculates angular velocity in rad/s.
         """
         current_time = time.time()
         current_steps = self.steps
@@ -86,7 +97,7 @@ class ReadRotaryEncoder:
         if time_diff < 0.0001:
             return 0, current_time, current_steps
 
-        angular_velocity = (step_diff / time_diff) * (2 * np.pi / cpr)
+        angular_velocity = (step_diff / time_diff) * (2.0 * np.pi / cpr)
 
         self.last_time = current_time
         self.last_steps = current_steps
