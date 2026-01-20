@@ -37,7 +37,7 @@ try:
               f"Arm2: {theta2:+.3f} rad ({np.degrees(theta2):+7.2f}°), {omega2:+.2f} rad/s", 
               end="\r")
         
-        # time.sleep(0.02)
+        time.sleep(0.02)
 
 except KeyboardInterrupt:
     print("\n\nStopped.")
