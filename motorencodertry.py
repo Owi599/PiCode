@@ -2,8 +2,8 @@ import pigpio
 import numpy as np
 import time
 from rotaryEncoder import PigpioQuadratureEncoder
-CPR = 625  # Cycles per revolution
-CPR_2 = 625
+CPR = 1250  # Cycles per revolution
+CPR_2 = 1250
 pi = pigpio.pi()
 if not pi.connected:
     raise RuntimeError("Start pigpiod: sudo pigpiod")
