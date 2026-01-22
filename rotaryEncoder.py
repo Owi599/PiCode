@@ -33,31 +33,23 @@ class PigpioQuadratureEncoder:
         self.pi.set_mode(gpio_b, pigpio.INPUT)
         self.pi.set_pull_up_down(gpio_a, pigpio.PUD_UP)
         self.pi.set_pull_up_down(gpio_b, pigpio.PUD_UP)
-
+        
+        self.state = (self.pi.read(self.gpio_a) << 1) | self.pi.read(self.gpio_b)
+        self._tt = {
+        (0b00,0b01): +1, (0b01,0b11): +1, (0b11,0b10): +1, (0b10,0b00): +1,
+        (0b00,0b10): -1, (0b10,0b11): -1, (0b11,0b01): -1, (0b01,0b00): -1,
+        }
         # Setup callbacks
         self.cb_a = self.pi.callback(gpio_a, pigpio.EITHER_EDGE, self._pulse)
         self.cb_b = self.pi.callback(gpio_b, pigpio.EITHER_EDGE, self._pulse)
 
     def _pulse(self, gpio, level, tick):
-        """Quadrature 4x decoding."""
-        if gpio == self.gpio_a:
-            self.lev_a = level
-        else:
-            self.lev_b = level
+        a = self.lev_a = level if gpio == self.gpio_a else self.lev_a
+        b = self.lev_b = level if gpio == self.gpio_b else self.lev_b
+        new_state = (a << 1) | b
+        self.steps += self._tt.get((self.state, new_state), 0)
+        self.state = new_state
 
-        if gpio != self.last_gpio:
-            self.last_gpio = gpio
-
-            if gpio == self.gpio_a and level == 1:
-                if self.lev_b == 1:
-                    self.steps += 1
-                else:
-                    self.steps -= 1
-            elif gpio == self.gpio_b and level == 1:
-                if self.lev_a == 1:
-                    self.steps -= 1
-                else:
-                    self.steps += 1
 
     def calibrate(self, target_angle):
         """
