@@ -3,115 +3,156 @@ import time
 import numpy as np
 
 
-
-# Class for controlling motor output
+# Class for controlling motor output via pigpio waveforms
 class MotorControl():
-    def __init__(self, pi, pulsePin, directionPin, stepsPerRev, pulleyRad,microresFactor, t_sample):
+    def __init__(self, pi, pulsePin, directionPin, stepsPerRev, pulleyRad, microresFactor, t_sample):
         """
-        Initializes the motor control using the pigpio library.
-        :param pi: An active pigpio instance.
+        Initialize the motor control using the pigpio library.
+
+        Args:
+            pi (pigpio.pi): Active pigpio instance.
+            pulsePin (int): GPIO pin used as step/clock output.
+            directionPin (int): GPIO pin used as direction output.
+            stepsPerRev (int): Full steps per mechanical revolution of the motor.
+            pulleyRad (float): Pulley radius in meters.
+            microresFactor (int): Microstepping factor (must match driver setting).
+            t_sample (float): Control loop sampling time [s].
         """
         if not pi.connected:
             raise RuntimeError("Could not connect to pigpio daemon.")
-        
+
         self.pi = pi
         self.pulsePin = pulsePin
         self.dirPin = directionPin
-        
-        # --- Pin Setup ---
+
+        # --- Pin setup ---
         self.pi.set_mode(self.pulsePin, pigpio.OUTPUT)
         self.pi.set_mode(self.dirPin, pigpio.OUTPUT)
         self.pi.write(self.pulsePin, 0)
         self.pi.write(self.dirPin, 0)
-        
-        # --- Physical and Control Parameters ---
+
+        # --- Physical and control parameters ---
         self.stepsPerRev = stepsPerRev
         self.pulleyRad = pulleyRad
         self.t_sample = t_sample
-        self.microresolution = microresFactor # This should match your driver's setting
-        self.m_total = 0.6 + 0.104 + 0.102 # Total mass kg
-        self.velocity_max = (2000 / 60) * (2 * np.pi) * self.pulleyRad # Max vel for 2000 RPM in m/s
+        self.microresolution = microresFactor      # Microstep resolution (driver DIP setting)
+        self.m_total = 0.6 + 0.104 + 0.102        # Total moving mass [kg] (cart + links)
+        # Max cart velocity at 2000 rpm (converted to rad/s then to linear velocity)
+        self.velocity_max = (2000 / 60) * (2 * np.pi) * self.pulleyRad
 
-        # Integration terms for velocity and position
-        self.velocity_integral = 0
-        self.position_integral = 0
+        # Integration states for simple 1D motion model
+        self.velocity_integral = 0                # Integrated velocity [m/s]
+        self.position_integral = 0                # Integrated position [m]
         self.dt = self.t_sample
-        
+
     def calculate_steps(self, force):
-       
-        # --- Physics Integration ---
+        """
+        Integrate a simple point-mass model and convert to stepper movement.
+
+        Args:
+            force (float): Desired cart force [N] (from controller output).
+
+        Returns:
+            tuple:
+                steps_to_move (int): Number of steps to move from current state.
+                step_freq (float): Step frequency [Hz] for the move.
+                direction (int): Direction sign (+1 forward, -1 backward, 0 idle).
+        """
+        # --- Physics integration: F = m * a → a = F / m_total ---
         acceleration = force / self.m_total
         self.velocity_integral += acceleration * self.dt
-        
-        # Clip velocity to the motor's physical maximum
+
+        # Clip velocity to physical motor limit
         if abs(self.velocity_integral) > self.velocity_max:
             self.velocity_integral = np.sign(self.velocity_integral) * self.velocity_max
 
+        # Integrate position from velocity
         self.position_integral += self.velocity_integral * self.dt
-        
-        # --- Convert desired position to steps ---
-        # Total steps from origin to desired new position
-        total_target_steps = int((self.position_integral * self.stepsPerRev * self.microresolution) / (2 * np.pi * self.pulleyRad))
-        
-        steps_to_move = abs(total_target_steps) # Simplified for this example
 
-        # Calculate the frequency (Hz) needed to achieve the target velocity
+        # --- Convert desired position to steps from origin ---
+        # Total steps corresponding to the integrated position
+        total_target_steps = int(
+            (self.position_integral * self.stepsPerRev * self.microresolution)
+            / (2 * np.pi * self.pulleyRad)
+        )
+
+        # For now, just use absolute value as movement amount;
+        # more advanced versions can track previous target to get delta-steps.
+        steps_to_move = abs(total_target_steps)
+
+        # --- Compute step frequency from desired linear velocity ---
         if self.velocity_integral == 0:
             step_freq = 0
         else:
-            # stepFreq (Hz) = velocity (m/s) / distance_per_step (m)
+            # Distance per microstep [m]
             distance_per_step = (2 * np.pi * self.pulleyRad) / (self.stepsPerRev * self.microresolution)
+            # step_freq [Hz] = v [m/s] / distance_per_step [m]
             step_freq = abs(self.velocity_integral) / distance_per_step
 
+        # Direction based on sign of cart velocity
         direction = int(np.sign(self.velocity_integral))
-        
+
         return steps_to_move, step_freq, direction
 
     def move_stepper(self, steps: int, frequency: float, direction: int):
         """
-        Moves the stepper motor using hardware-timed pulses (waveforms).
-        This function is now NON-BLOCKING. It starts the move and returns immediately.
+        Start a hardware-timed stepper move using pigpio waveforms (non-blocking).
+
+        Args:
+            steps (int): Number of steps to execute.
+            frequency (float): Step frequency [Hz].
+            direction (int): 1 for forward, -1 for reverse.
         """
-        # Set direction
+        # Set direction pin according to desired sign
         if direction == 1:
             self.pi.write(self.dirPin, 1)
         elif direction == -1:
             self.pi.write(self.dirPin, 0)
-        
-        # If no movement is needed, do nothing
+
+        # If no movement is requested, return immediately
         if steps == 0 or frequency == 0:
             return
 
-        # --- Create Hardware-Timed Waveform ---
-        # Calculate the delay for a 50% duty cycle pulse in microseconds
-        delay_micros = int(500000 / frequency)
-        
-        # Define one pulse: pin high, delay, pin low, delay
+        # --- Build hardware-timed waveform ---
+        # 50% duty-cycle: high and low each take delay_micros microseconds
+        delay_micros = int(500000 / frequency)  # half period in microseconds
+
+        # One step pulse: high for delay, then low for delay
         pulse = [
             pigpio.pulse(1 << self.pulsePin, 0, delay_micros),
-            pigpio.pulse(0, 1 << self.pulsePin, delay_micros)
+            pigpio.pulse(0, 1 << self.pulsePin, delay_micros),
         ]
-        
-        # Create a wave from the required number of pulses
+
+        # Repeat the pulse 'steps' times
         wave = pulse * steps
-        
+
+        # Create and transmit the waveform
         self.pi.wave_add_generic(wave)
         wave_id = self.pi.wave_create()
-        
+
         if wave_id >= 0:
-            # Send the wave. WAVE_MODE_ONE_SHOT executes it once.
+            # One-shot execution: run once then stop
             self.pi.wave_tx_send(wave_id, pigpio.WAVE_MODE_ONE_SHOT)
-            self.pi.wave_delete(wave_id) # Clean up the wave from pigpio memory
+            # Remove wave definition from pigpio to free memory
+            self.pi.wave_delete(wave_id)
 
     def is_moving(self):
+        """
+        Check whether a waveform (step sequence) is still being played.
+
+        Returns:
+            bool: True if motor is currently executing a move, False otherwise.
+        """
         return self.pi.wave_tx_busy()
 
     def stop_motor(self):
-        """Stops any current motor movement immediately."""
+        """
+        Immediately stop any ongoing motor movement and reset pins.
+        """
         print('Motor stopping')
-        # Stop any active waveforms
+        # Stop any active waveform transmission
         self.pi.wave_tx_stop()
-        # Set pins to low
+        # Set outputs low (no steps, no direction)
         self.pi.write(self.pulsePin, 0)
         self.pi.write(self.dirPin, 0)
         print('Motor stopped')
