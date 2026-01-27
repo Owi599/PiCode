@@ -55,6 +55,10 @@ class PigpioQuadratureEncoder:
         # Register callbacks for both edges of both channels
         self.cb_a = self.pi.callback(gpio_a, pigpio.EITHER_EDGE, self._pulse)
         self.cb_b = self.pi.callback(gpio_b, pigpio.EITHER_EDGE, self._pulse)
+        
+        self.pi.set_glitch_filter(gpio_a,1)
+        self.pi.set_glitch_filter(gpio_b,1)
+        
 
     def _pulse(self, gpio, level, tick):
         """
@@ -78,6 +82,7 @@ class PigpioQuadratureEncoder:
         # Look up step increment from state transition table
         self.steps += self._tt.get((self.state, new_state), 0)
         self.state = new_state
+        
 
     def calibrate(self, target_angle):
         """

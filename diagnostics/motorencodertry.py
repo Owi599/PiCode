@@ -10,7 +10,12 @@ if not pi.connected:
 
 # Create encoders
 enc_arm1 = PigpioQuadratureEncoder(pi, gpio_a=21, gpio_b=20, cpr=CPR, name="Arm1")
-enc_arm2 = PigpioQuadratureEncoder(pi, gpio_a=16, gpio_b=12, cpr=CPR_2, name="Arm2")
+enc_arm2 = PigpioQuadratureEncoder(pi, gpio_a=24, gpio_b=23, cpr=CPR_2, name="Arm2")
+# enc_arm2.pi.set_pull_up_down(24,pigpio.PUD_OFF)
+# enc_arm2.pi.set_pull_up_down(23,pigpio.PUD_OFF)
+# enc_arm2.pi.set_glitch_filter(enc_arm2.gpio_a,13)
+# enc_arm2.pi.set_glitch_filter(enc_arm2.gpio_b,13)
+
 
 try:
     # Calibration - directly set step counts
@@ -37,7 +42,7 @@ try:
               f"Arm2: {theta2:+.3f} rad ({np.degrees(theta2):+7.2f}°), {omega2:+.2f} rad/s", 
               end="\r")
         
-        time.sleep(0.02)
+        # time.sleep(0.02)
 
 except KeyboardInterrupt:
     print("\n\nStopped.")

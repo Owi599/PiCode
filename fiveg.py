@@ -1,9 +1,7 @@
-# This script implements a 5G-based UDP-like interface for sending sensor
-# (rotary encoder) data and receiving control data via AT commands over UART.
-
-from com import COM                               # Custom communication helper (not directly used here)
-from gpiozero import RotaryEncoder                # High-level Rotary Encoder interface
-from rotaryencoder import ReadRotaryEncoder       # Custom encoder utilities (currently unused)
+#This is the code for the 5G interface for communnicating sensor and control data through the 5G Module interface of the RPi
+from com import COM
+from gpiozero import RotaryEncoder #to creat Rotary encoder instance
+from rotaryEncoder import PigpioQuadratureEncoder
 import numpy as np
 import time
 import serial
