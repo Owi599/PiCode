@@ -1,7 +1,7 @@
 #This is the code for the 5G interface for communnicating sensor and control data through the 5G Module interface of the RPi
 from com import COM
 from gpiozero import RotaryEncoder #to creat Rotary encoder instance
-from rotaryencoder import ReadRotaryEncoder
+from rotaryEncoder import PigpioQuadratureEncoder
 import numpy as np
 import time
 import serial 
